@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "es2020",
+    "strict": true,
+    "sourceMap": true,
+    "rootDir": "src/",
+  },
+  "exclude": ["vitest.config.*", "node_modules"]
+}
