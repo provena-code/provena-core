@@ -1,6 +1,6 @@
 
-import { Author } from '../shared/Author';
-import { EditNode, Span } from '../shared/edit-data';
+import { Author } from 'provena';
+import { EditNode, Span } from 'provena';
 import { assert, expect, test, } from 'vitest';
 
 function createNode(text: string): EditNode {

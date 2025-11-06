@@ -1,8 +1,10 @@
 {
-  "name": "provena-core",
+  "name": "provena",
   "displayName": "Provena Core",
   "description": "",
   "version": "0.0.1",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
     "compile": "webpack",
     "watch": "webpack --watch",

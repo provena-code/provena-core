@@ -1,10 +1,10 @@
 import { assert, expect, test, } from 'vitest';
-import { DocumentStatus, EditListBuilder } from '../edits/EditListBuilder';
-import { EditList } from '../edits/EditList';
+import { DocumentStatus, EditListBuilder } from 'provena';
+import { EditList } from 'provena';
 import { createCopyEvent, createEditList, createEditListWithEvents, EditDefInput, extractEdits, createEditEvent, createFocusEvent, createUserEditEvents, createNewEditList } from './edit-utils';
-import { Span } from '../shared/edit-data';
-import { Author } from '../shared/Author';
-import { LogEvent } from '../edits/event-types';
+import { Span } from 'provena';
+import { Author } from 'provena';
+import { LogEvent } from 'provena';
 
 describe('EditListBuilder', () => {
   describe('createEditListWithEvents', () => {
