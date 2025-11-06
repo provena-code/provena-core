@@ -10,7 +10,7 @@ const EventBase = z.object({
 const DocumentEventBase = EventBase.extend({
   documentUri: z.string(),
   /** Hash of the document text *after* the event has occurred. */
-  documentTextHash: z.string(),
+  // documentTextHash: z.string(),
   /** Text of the document *after* the event has occurred. */
   documentText: z.string().optional(),
 });
@@ -27,7 +27,7 @@ const IChangeEvent = z.object({
 export const EDIT_EVENT_TYPE = 'EditEvent';
 export const EditEvent = DocumentEventBase.extend({
   type: z.literal(EDIT_EVENT_TYPE),
-  contentChanges: z.array(IChangeEvent),
+  contentChanges: z.array(IChangeEvent).readonly(),
   isUndoOrRedo: z.boolean().optional(),
 });
 

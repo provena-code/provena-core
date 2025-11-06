@@ -1,25 +1,25 @@
-import { assert, expect, test, } from 'vitest';
+import { assert, expect, it, describe} from 'vitest';
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { EditList } from '../../edits/EditList';
-import { EventLog, IChangeEvent } from '../../edits/event-types';
-import { Range, Position } from './vs-code-mock';
-import { EditNode, Metadata, Span } from '../../shared/edit-data';
-import { Author } from '../../shared/Author';
-import { EditDef, EditDefInput, WILDCARD, createEditList, createGenericMetadata, extractEdits, getEdges } from './edit-utils';
+import { EditList } from '../edits/EditList';
+import { IChangeEvent } from '../edits/event-types';
+import { EditNode, Span } from '../shared/edit-data';
+import { Author } from '../shared/Author';
+import { EditDef, WILDCARD, createEditList, getEdges } from './edit-utils';
 
-type PositionJson = {
-    line: number;
-    character: number;
-}
-
-type RangeJson = [ PositionJson, PositionJson ];
+export type OldEventLog = {
+    contentChanges: readonly IChangeEvent[];
+    reason: number | undefined;
+    documentText: string;
+    documentUri: string;
+    time: number;
+};
 
 function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
-function readTestFile(name: string): EventLog[] {
+function readTestFile(name: string): OldEventLog[] {
   const filePath = join(__dirname, 'data', name);
   let content = readFileSync(filePath, 'utf-8').trim();
   if (content.endsWith(',')) {
@@ -41,11 +41,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
   let textHistory = [];
   data.forEach(event => {
     if (firstEvent) {
-      editList.setInitialText(event.documentText, {
-        author: Author.ExistingText,
-        startTime: event.time,
-        endTime: event.time,
-      });
+      editList.setInitialText(event.documentText, event.time);
       firstEvent = false;
       textHistory.push(event.documentText);
       return;
@@ -54,14 +50,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
     event.contentChanges.forEach(change => {
       console.log('------------------------- Change -------------------------');
       console.log(change, isUndoRedo ? `(undo/redo: ${event.reason})` : '');
-      // Range and Position output to JSON as simplified data
-      // representations, so we need to convert them back.
-      const realRange = change.range as any as RangeJson;
       const realChangeEvent = {
-        range: new Range(
-          new Position(realRange[0].line, realRange[0].character),
-          new Position(realRange[1].line, realRange[1].character)
-        ),
         rangeLength: change.rangeLength,
         rangeOffset: change.rangeOffset,
         text: change.text,

@@ -1,9 +1,9 @@
 import { assert } from "vitest";
-import { EditList } from "../../edits/EditList";
-import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, FocusDocumentEvent, IChangeEvent, LogEvent } from "../../edits/event-types";
-import { Author } from "../../shared/Author";
-import { EditNode, Metadata } from "../../shared/edit-data";
-import { EditListBuilder } from "../../edits/EditListBuilder";
+import { EditList } from "../edits/EditList";
+import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, FocusDocumentEvent, IChangeEvent, LogEvent } from "../edits/event-types";
+import { Author } from "../shared/Author";
+import { EditNode, Metadata } from "../shared/edit-data";
+import { EditListBuilder } from "../edits/EditListBuilder";
 
 /**
  * Extracts the edit information between two strings.
@@ -202,7 +202,7 @@ export function createEditList(textDefs: EditDefInput[], silently: boolean): Edi
     text: texts[0],
     rangeOffset: 0,
     rangeLength: 0,
-  }, createGenericMetadata(Author.ExistingText));
+  }, createGenericMetadata(editDefs[0]?.author as Author || Author.ExistingText));
 
   edits.forEach((edit, i) => {
     const editDef = editDefs[i + 1];
