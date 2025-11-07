@@ -1,6 +1,6 @@
 import { IChangeEvent } from './event-types';
-import { Author } from 'provena';
-import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from 'provena';
+import { Author } from '../shared/Author';
+import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from '../shared/edit-data';
 import { create } from 'domain';
 
 function createHeadNode(): EditNode {
