@@ -1,7 +1,6 @@
 import { IChangeEvent } from './event-types';
 import { Author } from '../shared/Author';
 import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from '../shared/edit-data';
-import { create } from 'domain';
 
 function createHeadNode(): EditNode {
     return new EditNode(new Span(0, 0), '', { author: Author.ExistingText, startTime: 0, endTime: 0 });
