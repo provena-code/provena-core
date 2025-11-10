@@ -19,7 +19,10 @@ export class EditList {
     trace: (...args: any[]) => void = (..._args: any[]) => { };
     logError: (...args: any[]) => void = (..._args: any[]) => { console.error(..._args); };
 
-    getEdits(): readonly EditRange[] {
+    getEdits(copy = false): readonly EditRange[] {
+        if (copy) {
+            return this.edits.map(edit => copyEditRange(edit));
+        }
         return this.edits;
     }
 
