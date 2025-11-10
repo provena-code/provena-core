@@ -19,11 +19,12 @@ export class EditList {
     trace: (...args: any[]) => void = (..._args: any[]) => { };
     logError: (...args: any[]) => void = (..._args: any[]) => { console.error(..._args); };
 
-    getEdits(copy = false): readonly EditRange[] {
-        if (copy) {
-            return this.edits.map(edit => copyEditRange(edit));
-        }
+    getEdits(): readonly EditRange[] {
         return this.edits;
+    }
+
+    copyEdits(): EditRange[] {
+        return this.edits.map(edit => copyEditRange(edit));
     }
 
     getHeadChildren(): readonly EditNode[] {
