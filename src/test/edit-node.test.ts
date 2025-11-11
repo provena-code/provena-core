@@ -1,7 +1,7 @@
 
 import { Author } from '../shared/Author';
 import { EditNode, Span } from '../shared/edit-data';
-import { assert, expect, test, } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 function createNode(text: string): EditNode {
     return new EditNode(new Span(0, text.length), text, {

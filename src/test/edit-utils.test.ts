@@ -1,4 +1,4 @@
-import { assert } from "vitest";
+import { assert, describe, it } from "vitest";
 import { createEditList, extractEdits } from "./edit-utils";
 
 describe('Extract Edits', () => {

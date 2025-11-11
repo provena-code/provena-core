@@ -5,3 +5,4 @@ export * from './edits/EventListener';
 
 export * from './shared/Author';
 export * from './shared/edit-data';
+export * from './progsnap/ProgSnap2Builder';

@@ -1,4 +1,4 @@
-import { assert, expect, test, } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { DocumentStatus, EditListBuilder } from '../edits/EditListBuilder';
 import { EditList } from '../edits/EditList';
 import { createCopyEvent, createEditList, createEditListWithEvents, EditDefInput, extractEdits, createEditEvent, createFocusEvent, createUserEditEvents, createNewEditList } from './edit-utils';
