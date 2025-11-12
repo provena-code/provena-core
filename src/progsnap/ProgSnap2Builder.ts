@@ -3,7 +3,7 @@ import { EditList, EditListBuilder, EditRange } from "../index";
 
 export namespace PS2 {
     export type MainTableRow = {
-        ServerTimestamp: string;
+        ClientTimestamp: string;
         SourceLocation: string | null;
         InsertText: string | null;
         DeleteText: string | null;
@@ -31,8 +31,8 @@ export namespace PS2 {
         let first = true;
         const history: EditHistoryFrame[] = [];
         for (const event of events) {
-            // parse event.ServerTimestamp as ISO string
-            const time = new Date(event.ServerTimestamp).getTime();
+            // parse event.ClientTimestamp as ISO string
+            const time = new Date(event.ClientTimestamp).getTime();
             const insertedText = event.InsertText || '';
             const deletedLength = (event.DeleteText || '').length;
             const rangeOffset = parseInt(event.SourceLocation!);
