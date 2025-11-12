@@ -236,6 +236,11 @@ export class EditListBuilder implements EventListener {
             let match: QueryMatch | null = null;
             if (author === Author.ExternalPaste && !isUndoOrRedo && this.copiedText) {
                 match = this.copiedText.match;
+            } else if (author === Author.System && !isUndoOrRedo) {
+                // Check if text from the System is actually something that's already been typed.
+                // TODO: Need to test this more thoroughly. Does it add lag?
+                // Does it have edge cases where system text gets upgraded to copied text?
+                match = this.findTextInCurrentTextOrHistory(originalEdit.text);
             }
 
             let edit = originalEdit;
@@ -266,14 +271,18 @@ export class EditListBuilder implements EventListener {
         if (this.copiedText && this.copiedText.text === text) {
             return;
         }
+        const match = this.findTextInCurrentTextOrHistory(text);
+        this.copiedText = new CopiedText(text, match);
+    }
+
+    private findTextInCurrentTextOrHistory(text: string): QueryMatch | null {
         const currentMatches = this.editList.searchCurrentEdits(text);
         if (currentMatches.length > 0) {
             // TODO: Choose the most generous one
-            this.copiedText = new CopiedText(text, currentMatches[0]);
-            return;
+            return currentMatches[0];
         }
-        const match = this.editList.searchHistory(text);
-        this.copiedText = new CopiedText(text, match);
+        const historicalMatch = this.editList.searchHistory(text);
+        return historicalMatch;
     }
 
 }
