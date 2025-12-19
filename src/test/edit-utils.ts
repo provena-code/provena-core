@@ -1,9 +1,9 @@
 import { assert } from "vitest";
+import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, FocusDocumentEvent, IChangeEvent, LogEvent } from "../edits/EditEvent";
 import { EditList } from "../edits/EditList";
-import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, FocusDocumentEvent, IChangeEvent, LogEvent } from "../edits/event-types";
+import { EditListBuilder } from "../edits/EditListBuilder";
 import { Author } from "../shared/Author";
 import { EditNode, Metadata } from "../shared/edit-data";
-import { EditListBuilder } from "../edits/EditListBuilder";
 
 /**
  * Extracts the edit information between two strings.

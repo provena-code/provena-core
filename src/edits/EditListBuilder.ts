@@ -1,9 +1,8 @@
 import { diffChars } from "diff";
 import { Author } from "../shared/Author";
 import { QueryMatch, Span } from "../shared/edit-data";
+import { EditEvent, IChangeEvent } from "./EditEvent";
 import { EditList } from "./EditList";
-import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, IChangeEvent, LogEvent } from "./event-types";
-import { EventListener } from "./EventListener";
 
 class CopiedText {
     constructor(public readonly text: string, public readonly match: QueryMatch | null) {}
@@ -34,7 +33,7 @@ export enum DocumentStatus {
     Irreconcilable,
 }
 
-export class EditListBuilder implements EventListener {
+export class EditListBuilder {
 
     private copiedText: CopiedText | null = null;
 
@@ -158,20 +157,6 @@ export class EditListBuilder implements EventListener {
     }
 
     /**
-     * @deprecated Use specific event handlers instead.
-     */
-    public onEvent(event: LogEvent) {
-        switch (event.type) {
-            case COPY_EVENT_TYPE:
-                this.addCopyEvent(event);
-                break;
-            case EDIT_EVENT_TYPE:
-                this.addEditEvent(event);
-                break;
-        }
-    }
-
-    /**
      * Modifies the given change event to remove any redundant text changes, where existing text is
      * replaced with identical text.
      * For example, if the existing text is "Hello World" and the change event replaces it with
@@ -268,17 +253,16 @@ export class EditListBuilder implements EventListener {
 
     }
 
-    public addCopyEvent(copyEvent: CopyEvent) {
-        const text = copyEvent.copiedText;
-        if (!text || text.length === 0) {
+    public addCopyEvent(copiedText: string) {
+        if (!copiedText || copiedText.length === 0) {
             this.copiedText = null;
             return;
         }
-        if (this.copiedText && this.copiedText.text === text) {
+        if (this.copiedText && this.copiedText.text === copiedText) {
             return;
         }
-        const match = this.matchText(text, true);
-        this.copiedText = new CopiedText(text, match);
+        const match = this.matchText(copiedText, true);
+        this.copiedText = new CopiedText(copiedText, match);
     }
 
     private matchText(text: string, searchHistory: boolean): QueryMatch | null {

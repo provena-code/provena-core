@@ -1,6 +1,6 @@
-import { IChangeEvent } from './event-types';
 import { Author } from '../shared/Author';
-import { EditRange, Span, Metadata, copyEditRange, EditNode, copyMetadata, QueryMatch, QueryParams } from '../shared/edit-data';
+import { copyEditRange, EditNode, EditRange, Metadata, QueryMatch, Span } from '../shared/edit-data';
+import { IChangeEvent } from './EditEvent';
 
 function createHeadNode(): EditNode {
     return new EditNode(new Span(0, 0), '', { author: Author.ExistingText, startTime: 0, endTime: 0 });

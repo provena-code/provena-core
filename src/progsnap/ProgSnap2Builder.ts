@@ -26,10 +26,9 @@ export namespace PS2 {
     }
 
     export class Builder {
-        private readonly editListBuilder = new EditListBuilder(new EditList());
-        private readonly editList = this.editListBuilder.editList;
+        public readonly editListBuilder = new EditListBuilder(new EditList());
+        public readonly editList = this.editListBuilder.editList;
         private readonly history: EditHistoryFrame[] = [];
-        private first = false;
 
         constructor(public readonly addHistory: boolean = false) {
 
@@ -41,6 +40,23 @@ export namespace PS2 {
 
         public getEditsCopy() {
             return this.editList.copyEdits();
+        }
+
+        public addEventsUnsafe(events: object[]) {
+            events.forEach((event) => {
+                this.addEventUnsafe(event);
+            });
+        }
+
+        public addEventUnsafe(event: object): MainTableEvent | undefined {
+            try {
+                const parsedEvent = MainTableEvent.parse(event);
+                this.addEvent(parsedEvent);
+                return parsedEvent;
+            } catch (e) {
+                console.error("Failed to parse event:", event, e);
+            }
+            return undefined;
         }
 
         public addEvents(events: MainTableEvent[]) {
@@ -66,11 +82,7 @@ export namespace PS2 {
 
             // TODO: Handle copied text from other documents!
             if (isFileCopyTextEvent(event)) {
-                builder.addCopyEvent({
-                    copiedText: event.CopiedText,
-                    time,
-                    type: 'CopyEvent'
-                });
+                builder.addCopyEvent(event.CopiedText);
             }
 
             if (!isFileEditEvent(event)) {
@@ -78,12 +90,8 @@ export namespace PS2 {
             }
 
             if (event.EditType === 'Paste' && event.InsertText) {
-                // Note: this wouldn't trigger on an empty paste, but I think that's fine
-                builder.addCopyEvent({
-                    copiedText: event.InsertText,
-                    time,
-                    type: 'CopyEvent'
-                });
+                // Note: we don't count empty copies
+                builder.addCopyEvent(event.InsertText);
             }
 
             const insertedText = event.InsertText || '';
@@ -95,21 +103,16 @@ export namespace PS2 {
                 end: rangeOffset + insertedText.length,
             };
 
-            if (this.first && insertedText.length > 1) {
-                builder.editList.setInitialText(insertedText, time);
-            } else {
-                builder.addEditEvent({
-                    time: time,
-                    documentUri: event.CodeStateSection || '',
-                    type: 'EditEvent',
-                    contentChanges: [{
-                        text: insertedText,
-                        rangeOffset,
-                        rangeLength: deletedLength,
-                    }]
-                });
-            }
-            this.first = false;
+            const isUndoOrRedo = event.EditType === 'Undo' || event.EditType === 'Redo';
+            builder.addEditEvent({
+                time: time,
+                contentChanges: [{
+                    text: insertedText,
+                    rangeOffset,
+                    rangeLength: deletedLength,
+                }],
+                isUndoOrRedo: isUndoOrRedo,
+            });
 
             if (!this.addHistory) {
                 return;

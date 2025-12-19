@@ -1,10 +1,10 @@
-import { assert, expect, it, describe} from 'vitest';
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { assert, describe, expect, it } from 'vitest';
+import { IChangeEvent } from '../edits/EditEvent';
 import { EditList } from '../edits/EditList';
-import { IChangeEvent } from '../edits/event-types';
-import { EditNode, Span } from '../shared/edit-data';
 import { Author } from '../shared/Author';
+import { EditNode, Span } from '../shared/edit-data';
 import { EditDef, WILDCARD, createEditList, getEdges } from './edit-utils';
 
 export type OldEventLog = {

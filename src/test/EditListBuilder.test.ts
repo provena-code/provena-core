@@ -1,10 +1,10 @@
-import { expect, describe, it } from 'vitest';
-import { DocumentStatus, EditListBuilder } from '../edits/EditListBuilder';
+import { describe, expect, it } from 'vitest';
+import { LogEvent } from '../edits/EditEvent';
 import { EditList } from '../edits/EditList';
-import { createCopyEvent, createEditList, createEditListWithEvents, EditDefInput, extractEdits, createEditEvent, createFocusEvent, createUserEditEvents, createNewEditList } from './edit-utils';
-import { Span } from '../shared/edit-data';
+import { DocumentStatus, EditListBuilder } from '../edits/EditListBuilder';
 import { Author } from '../shared/Author';
-import { LogEvent } from '../edits/event-types';
+import { Span } from '../shared/edit-data';
+import { createCopyEvent, createEditEvent, createFocusEvent, createNewEditList, createUserEditEvents, extractEdits } from './edit-utils';
 
 describe('EditListBuilder', () => {
   describe('createEditListWithEvents', () => {
