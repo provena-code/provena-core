@@ -1,9 +1,9 @@
-import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, IChangeEvent, LogEvent, SAVE_EVENT_TYPE, SYNC_EVENT_TYPE } from "./event-types";
+import { diffChars } from "diff";
 import { Author } from "../shared/Author";
 import { QueryMatch, Span } from "../shared/edit-data";
 import { EditList } from "./EditList";
+import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, IChangeEvent, LogEvent } from "./event-types";
 import { EventListener } from "./EventListener";
-import { diffChars } from "diff";
 
 class CopiedText {
     constructor(public readonly text: string, public readonly match: QueryMatch | null) {}
@@ -157,6 +157,9 @@ export class EditListBuilder implements EventListener {
         });
     }
 
+    /**
+     * @deprecated Use specific event handlers instead.
+     */
     public onEvent(event: LogEvent) {
         switch (event.type) {
             case COPY_EVENT_TYPE:
