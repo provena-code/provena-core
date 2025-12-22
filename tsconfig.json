@@ -6,6 +6,7 @@
     "strict": true,
     "sourceMap": true,
     "rootDir": "src/",
+    "composite": true
   },
   "exclude": ["vitest.config.*", "node_modules"]
 }
