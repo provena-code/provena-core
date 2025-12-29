@@ -1,12 +1,17 @@
 
-import { EditList, EditListBuilder, EditRange } from "../index";
-import { isFileCopyTextEvent, isFileEditEvent, MainTableEvent } from "./PS2EventTypes";
+import { EditList, EditListBuilder, EditRange, IChangeEvent } from "../index";
+import { FileEditEvent, isFileCopyTextEvent, isFileEditEvent, MainTableEvent } from "./PS2EventTypes";
 
 export namespace PS2 {
 
+    export type EditedRange = {
+        start: number;
+        end: number;
+    }
+
     export type EditHistoryFrame = {
         edits: EditRange[];
-        editedRange: { start: number; end: number } | null;
+        editedRanges: EditedRange[];
         wasInsertion: boolean;
         wasDeletion: boolean;
     }
@@ -60,10 +65,24 @@ export namespace PS2 {
         }
 
         public addEvents(events: MainTableEvent[]) {
-            events.forEach((event) => this.addEvent(event));
+            for (let i = 0; i < events.length; i++) {
+                const event = events[i];
+                const childEvents: MainTableEvent[] = [];
+                for (let j = i + 1; j < events.length; j++) {
+                    const nextEvent = events[j];
+                    if (event.EventID === nextEvent.ParentEventID) {
+                        childEvents.push(nextEvent);
+                    } else {
+                        break;
+                    }
+                }
+                this.addEvent(event, childEvents);
+            }
         }
 
-        public addEvent(event: MainTableEvent) {
+        // Private because we might have multiple events with the same
+        // parent, so those need to be processed together
+        private addEvent(event: MainTableEvent, childEvents: MainTableEvent[] = []) {
             if (!event) {
                 console.error("Event is undefined or null");
                 return;
@@ -90,28 +109,33 @@ export namespace PS2 {
                 return;
             }
 
+            const isUndoOrRedo = event.EditType === 'Undo' || event.EditType === 'Redo';
+
+            const allEvents: FileEditEvent[] = [event];
+
+            for (const child of childEvents) {
+                if (!isFileEditEvent(child)) {
+                    console.error("Child events must share EventTypes", event, child);
+                    continue;
+                }
+                const isChildUndoOrRedo = child.EditType === 'Undo' || child.EditType === 'Redo';
+                if (isUndoOrRedo !== isChildUndoOrRedo) {
+                    console.error("Mismatched Undo/Redo between parent and child events", event, child);
+                    continue;
+                }
+                allEvents.push(child);
+            }
+
             if (event.EditType === 'Paste' && event.InsertText) {
                 // Note: we don't count empty copies
                 builder.addCopyEvent(event.InsertText);
             }
 
-            const insertedText = event.InsertText || '';
-            const deletedLength = event.DeleteText?.length || event?.DeleteLength || 0;
-            const rangeOffset = parseInt(event.SourceLocation!);
+            const changeEvents = allEvents.map(e => this.getChangeEvent(e));
 
-            const editedRange = {
-                start: rangeOffset,
-                end: rangeOffset + insertedText.length,
-            };
-
-            const isUndoOrRedo = event.EditType === 'Undo' || event.EditType === 'Redo';
             builder.addEditEvent({
                 time: time,
-                contentChanges: [{
-                    text: insertedText,
-                    rangeOffset,
-                    rangeLength: deletedLength,
-                }],
+                contentChanges: changeEvents,
                 isUndoOrRedo: isUndoOrRedo,
             });
 
@@ -120,10 +144,29 @@ export namespace PS2 {
             }
             this.history.push({
                 edits: builder.editList.copyEdits(),
-                editedRange: editedRange,
-                wasInsertion: insertedText.length > 0,
-                wasDeletion: deletedLength > 0,
+                editedRanges: changeEvents.map(ce => this.getEditedRange(ce)),
+                wasInsertion: changeEvents.some(ce => ce.text.length > 0),
+                wasDeletion: changeEvents.some(ce => ce.rangeLength > 0),
             });
+        }
+
+        private getEditedRange(changeEvent: IChangeEvent) {
+            return {
+                start: changeEvent.rangeOffset,
+                end: changeEvent.rangeOffset + changeEvent.text.length,
+            };
+        }
+
+        private getChangeEvent(event: FileEditEvent): IChangeEvent {
+            const insertedText = event.InsertText || '';
+            const deletedLength = event.DeleteText?.length || event?.DeleteLength || 0;
+            const rangeOffset = parseInt(event.SourceLocation!);
+
+            return {
+                text: insertedText,
+                rangeOffset,
+                rangeLength: deletedLength,
+            };
         }
     }
 }
