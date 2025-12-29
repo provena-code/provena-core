@@ -76,7 +76,8 @@ export namespace PS2 {
             // If we're given the exact code, we should just update the document text
 
             if (event.Code) {
-                builder.verifyDocumentText(event.Code, time, true);
+                const status = builder.verifyDocumentText(event.Code, time, true);
+                // console.log(`Status: ${status}; Resetting text for ${event.CodeStateSection} to`, event.Code);
                 return;
             }
 

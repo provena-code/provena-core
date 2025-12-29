@@ -79,13 +79,15 @@ export class EditListBuilder {
         if (currentText === documentText) {
             return DocumentStatus.Synced;
         }
-        const historicalMatch = this.editList.searchHistory(documentText);
-        if (historicalMatch) {
-            if (update) {
-                this.editList.revertToHistoricalMatch(historicalMatch, time);
-            }
-            return DocumentStatus.Modified;
-        }
+
+        // const historicalMatch = this.editList.searchHistory(documentText);
+        // if (historicalMatch) {
+        //     if (update) {
+        //         console.log('Reverting to historical match', historicalMatch);
+        //         this.editList.revertToHistoricalMatch(historicalMatch, time);
+        //     }
+        //     return DocumentStatus.Modified;
+        // }
 
         const parts = diffChars(currentText, documentText);
         const keptLengths = parts.filter(p => !p.added && !p.removed).map(p => p.value.length);
