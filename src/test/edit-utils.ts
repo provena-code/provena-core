@@ -1,5 +1,5 @@
 import { assert } from "vitest";
-import { COPY_EVENT_TYPE, CopyEvent, EDIT_EVENT_TYPE, EditEvent, FOCUS_EVENT_TYPE, FocusDocumentEvent, IChangeEvent, LogEvent } from "../edits/EditEvent";
+import { EditEvent, IChangeEvent } from "../edits/EditEvent";
 import { EditList } from "../edits/EditList";
 import { EditListBuilder } from "../edits/EditListBuilder";
 import { Author } from "../shared/Author";
@@ -121,41 +121,10 @@ export function createUserEditEvents(change: IChangeEvent): EditEvent[] {
 
 export function createEditEvent(change: IChangeEvent, isUndoOrRedo: boolean = false) : EditEvent {
   return {
-    type: EDIT_EVENT_TYPE,
     time: 0,
-    documentUri: 'test-document',
     contentChanges: [change],
     isUndoOrRedo,
   };
-}
-
-export function createFocusEvent(initialText: string): FocusDocumentEvent {
-  return {
-    type: FOCUS_EVENT_TYPE,
-    time: 0,
-    documentUri: 'test-document',
-    documentText: initialText,
-  };
-}
-
-export function createCopyEvent(copiedText: string): CopyEvent {
-  return {
-    type: COPY_EVENT_TYPE,
-    time: 0,
-    copiedText: copiedText,
-  };
-}
-
-export function createEditEvents(textDefs: EditDefInput[]): LogEvent[] {
-  // Remove undo/redo markers from texts
-  const texts = textDefs.map(t => t instanceof Object ? t.text : t);
-  const editDefs = textDefs.map(t => t instanceof Object ? t : { text: t });
-
-  var edits = extractEdits(texts);
-  const initEvent = createFocusEvent(texts[0]);
-  const editEvents = edits.map((e, i) => createEditEvent(e, editDefs[i].isUndoRedo));
-
-  return [initEvent, ...editEvents];
 }
 
 export function createNewEditList(silently = false) {
@@ -168,24 +137,6 @@ export function createNewEditList(silently = false) {
     assert.fail('Error logged during test');
   };
   return editList;
-}
-
-export function createEditListWithEvents(textDefsOrEdits: (EditDefInput | EditEvent)[], silently: boolean) {
-  const isTextEdit = textDefsOrEdits.map(x => !Object.keys(x).includes('type'));
-  const textDefs = textDefsOrEdits.filter((x, i) => isTextEdit[i]) as EditDefInput[];
-  const editEvents = createEditEvents(textDefs);
-  const events = [];
-  let editEventIndex = 0;
-  for (let i = 0; i < textDefsOrEdits.length; i++) {
-    if (isTextEdit[i]) {
-      events.push(editEvents[editEventIndex++]);
-    } else {
-      events.push(textDefsOrEdits[i] as EditEvent);
-    }
-  }
-  const editListBuilder = new EditListBuilder(createNewEditList(silently));
-  events.forEach(e => editListBuilder.onEvent(e));
-  return editListBuilder.editList;
 }
 
 export function createEditList(textDefs: EditDefInput[], silently: boolean): EditList {

@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { LogEvent } from '../edits/EditEvent';
 import { EditList } from '../edits/EditList';
 import { DocumentStatus, EditListBuilder } from '../edits/EditListBuilder';
 import { Author } from '../shared/Author';
 import { Span } from '../shared/edit-data';
-import { createCopyEvent, createEditEvent, createFocusEvent, createNewEditList, createUserEditEvents, extractEdits } from './edit-utils';
+import { createEditEvent, createNewEditList, createUserEditEvents, extractEdits } from './edit-utils';
 
 describe('EditListBuilder', () => {
   describe('createEditListWithEvents', () => {
@@ -14,21 +13,21 @@ describe('EditListBuilder', () => {
         'Hello ',
         'Hello  World',
         'Hello Hello  World World',
-      ]
+      ];
 
       const edits = extractEdits(texts);
 
-      const events: LogEvent[] = [
-        createFocusEvent(texts[0]),
-        ...createUserEditEvents(edits[0]),
-        createEditEvent(edits[1]),
-        createCopyEvent('Hello  World'),
-        createEditEvent(edits[2]),
-      ];
-
       const editListBuilder = new EditListBuilder(createNewEditList(false));
+
+       // Set initial text
+      editListBuilder.verifyDocumentText(texts[0], 0, true);
+      // Write out the the first edit by keystrokes
+      createUserEditEvents(edits[0]).forEach(e => editListBuilder.addEditEvent(e));
+      editListBuilder.addEditEvent(createEditEvent(edits[1]));
+      editListBuilder.addCopyEvent('Hello  World');
+      editListBuilder.addEditEvent(createEditEvent(edits[2]));
+
       const editList = editListBuilder.editList;
-      events.forEach(e => editListBuilder.onEvent(e));
 
       expect(editList.toPlainText()).toBe(texts[texts.length - 1]);
       expect(editList.getAuthors(new Span(0, 12), true)).toEqual(new Set([Author.User]));
