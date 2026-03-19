@@ -44,7 +44,7 @@ type EditEdge = {
     child: EditNode;
 }
 
-export class EditNode implements EditRange {
+export class EditNode implements EditRange, Devaluable<EditNode> {
     private readonly outEdges: EditEdge[] = [];
     private readonly parents: EditNode[] = [];
 
@@ -54,6 +54,31 @@ export class EditNode implements EditRange {
         public metadata: Metadata
     ) {
 
+    }
+
+    toPOJO() {
+        return {
+            ...this,
+            // Avoid circular references in serialization;
+            // these will be reconstructed during deserialization
+            parents: null
+        };
+    }
+
+    static fromPOJO(obj: any): EditNode {
+        const node = new EditNode(obj.range, obj.text, obj.metadata);
+        if (obj.outEdges) {
+            (node as any).outEdges = obj.outEdges;
+        }
+        if (obj.parents) {
+            (node as any).parents = obj.parents;
+        }
+        // Just set the parents for this node's children, since
+        // the children should already be reconstructed
+        node.outEdges.forEach(edge => {
+            edge.child.parents.push(node);
+        });
+        return node;
     }
 
     treeSize(): number {
@@ -319,11 +344,19 @@ export type QueryParams = {
     continueSearch?: () => boolean;
 }
 
-export class Span {
+export class Span implements Devaluable<Span> {
     constructor(public readonly start: number, public readonly end: number) {
         if (start > end) {
             throw new Error(`Invalid span: start ${start} > end ${end}`);
         }
+    }
+
+    toPOJO() {
+        return toPOJO(this);
+    }
+
+    static fromPOJO(data: any): Span {
+        return new Span(data.start, data.end);
     }
 
     contains(position: number) {

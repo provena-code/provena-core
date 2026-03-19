@@ -29,12 +29,11 @@ describe('Edit List', () => {
         expect(runTime).toBeLessThan(builder.editListBuilder.config.maxSearchTimeMs + 500);
     });
 
-    it('should handle copy-paste operations in a timely manner', () => {
-        console.log("test!!");
+    // it('should handle copy-paste operations in a timely manner', () => {
         // const builder = new PS2.Builder();
         // builder.editListBuilder.config.maxSearchTimeMs = 15 * 1000;
         // createBuilderFromFile(pasteHangPath, builder);
         // const editList = builder.editList;
         // expect(editList).toBeDefined();
-    });
+    // });
 });
