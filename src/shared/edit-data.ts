@@ -56,6 +56,14 @@ export class EditNode implements EditRange {
 
     }
 
+    treeSize(): number {
+        return this.outEdges.reduce((size, edge) => size + edge.child.treeSize(), 0);
+    }
+
+    treeIndexCount(): number {
+        return this.outEdges.reduce((count, edge) => count + edge.textIndices.length + edge.child.treeIndexCount(), 0);
+    }
+
     getChildren(): readonly EditNode[] {
         return this.outEdges.map(edge => edge.child);
     }
@@ -188,6 +196,11 @@ export class EditNode implements EditRange {
     }
 
     search(queryParams: QueryParams, queryIndex: number = 0): QueryMatch | null {
+        // Stop early if requested. This allows us to bound search by time or other conditions
+        if (queryParams.continueSearch && !queryParams.continueSearch()) {
+            return null;
+        }
+
         // Destructure parameters for easier access
         const {
             query,
@@ -303,6 +316,7 @@ export type QueryParams = {
     exactIndex: boolean;
     checked?: Map<EditNode, number[]>;
     subsequentEdit?: EditNode;
+    continueSearch?: () => boolean;
 }
 
 export class Span {

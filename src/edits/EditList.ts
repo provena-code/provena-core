@@ -6,6 +6,11 @@ function createHeadNode(): EditNode {
     return new EditNode(new Span(0, 0), '', { author: Author.ExistingText, startTime: 0, endTime: 0 });
 }
 
+export function continueWithinTimeLimit(ms: number): () => boolean {
+    const startTime = Date.now();
+    return () => Date.now() - startTime < ms;
+}
+
 /**
  * Manages a history of edits with associated metadata from a code file.
  * All edits are non-overlapping and sorted by their start position.
@@ -67,9 +72,10 @@ export class EditList {
         });
     }
 
-    searchHistory(query: string): QueryMatch | null {
+    searchHistory(query: string, continueSearch?: () => boolean): QueryMatch | null {
         for (const headChild of this.head.getChildren()) {
-            const match = headChild.search({ query, exactIndex: false });
+            // console.log(headChild.treeIndexCount());
+            const match = headChild.search({ query, exactIndex: false, continueSearch });
             if (match) {
                 return match;
             }

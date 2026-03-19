@@ -2,7 +2,7 @@ import { diffChars } from "diff";
 import { Author } from "../shared/Author";
 import { QueryMatch, Span } from "../shared/edit-data";
 import { EditEvent, IChangeEvent } from "./EditEvent";
-import { EditList } from "./EditList";
+import { continueWithinTimeLimit, EditList } from "./EditList";
 
 class CopiedText {
     constructor(public readonly text: string, public readonly match: QueryMatch | null) {}
@@ -24,6 +24,8 @@ class AttributionConfig {
 
         public minHistoricalMatchOverlapRatio: number = 0.2,
         public minHistoricalMatchLongestOverlapRatio: number = 0.05,
+
+        public maxSearchTimeMs: number = 300,
     ) {}
 }
 
@@ -276,7 +278,7 @@ export class EditListBuilder {
         if (!searchHistory) {
             return null;
         }
-        const historicalMatch = this.editList.searchHistory(text);
+        const historicalMatch = this.editList.searchHistory(text, continueWithinTimeLimit(this.config.maxSearchTimeMs));
         return historicalMatch;
     }
 
