@@ -4,6 +4,8 @@ import { PS2 } from '../progsnap/ProgSnap2Builder';
 import { describe, expect, it } from 'vitest';
 import { deserialize, serialize } from '../serialization/serialization-types';
 import { EditList } from '../edits/EditList';
+import { de, no } from 'zod/locales';
+import { EditNode } from '../shared/edit-data';
 
 function createBuilderFromFile(path: string, builder = new PS2.Builder()): PS2.Builder {
     const filePath = join(__dirname, 'data', path);
@@ -39,8 +41,17 @@ describe('Edit List', () => {
             expectEqualWith(deserialized, editList, x => x.getEdits().length);
             expectEqualWith(deserialized, editList, x => x.getHeadChildren().length);
             expectEqualWith(deserialized, editList, x => x.getHeadChildren()[0].getOutEdges().length);
+
+            function expectCorrectParents(node: EditNode) {
+                node.getOutEdges().forEach(child => {
+                    expect(child.child.getParents()).toContain(node);
+                    expectCorrectParents(child.child);
+                });
+            };
+
+            deserialized.getHeadChildren().forEach(child => {
+                expectCorrectParents(child);
+            })
         });
     });
-
-    // TODO: Test that parents are correctly re-added
 });
