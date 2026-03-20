@@ -19,7 +19,6 @@ function createBuilderFromFile(path: string, builder = new PS2.Builder()): PS2.B
 
 describe('Edit List', () => {
     it('should bound search based on a time limit', () => {
-        console.log("test!!");
         const time = new Date().getTime();
         const builder = createBuilderFromFile(pasteHangPath);
         const editList = builder.editList;

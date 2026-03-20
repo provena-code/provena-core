@@ -37,11 +37,7 @@ const revivers = Object.fromEntries(
 );
 
 export function serialize(obj: any): string {
-    const value = devalue.stringify(obj, reducers);
-    if (typeof value !== 'string') {
-        return JSON.stringify(value);
-    }
-    return value;
+    return devalue.stringify(obj, reducers);
 }
 
 export function deserialize<T>(str: string): T {
