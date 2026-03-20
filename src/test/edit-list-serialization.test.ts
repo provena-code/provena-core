@@ -41,4 +41,6 @@ describe('Edit List', () => {
             expectEqualWith(deserialized, editList, x => x.getHeadChildren()[0].getOutEdges().length);
         });
     });
+
+    // TODO: Test that parents are correctly re-added
 });
