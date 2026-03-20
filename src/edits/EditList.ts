@@ -1,5 +1,6 @@
+import { Devaluable } from '../serialization/serialization-types';
 import { Author } from '../shared/Author';
-import { copyEditRange, EditNode, EditRange, Metadata, QueryMatch, Span } from '../shared/edit-data';
+import { copyEditRange, EditNode, EditRange, Metadata, QueryMatch, Span, toPOJO } from '../shared/edit-data';
 import { IChangeEvent } from './EditEvent';
 
 function createHeadNode(): EditNode {
@@ -17,12 +18,27 @@ export function continueWithinTimeLimit(ms: number): () => boolean {
  */
 // TODO: All indexOf calls could be replaced with binary search for efficiency
 // or a map from range to edit could be maintained
-export class EditList {
+export class EditList implements Devaluable {
     private edits = [] as EditNode[];
     private head = createHeadNode();
 
     trace: (...args: any[]) => void = (..._args: any[]) => { };
     logError: (...args: any[]) => void = (..._args: any[]) => { console.error(..._args); };
+
+    toPOJO() {
+        return {
+            ...this,
+            trace: undefined,
+            logError: undefined,
+        }
+    }
+
+    static fromPOJO(data: any): EditList {
+        const editList = new EditList();
+        editList.head = data.head;
+        editList.edits = data.edits;
+        return editList;
+    }
 
     getEdits(): readonly EditRange[] {
         return this.edits;

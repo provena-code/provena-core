@@ -1,4 +1,5 @@
 import { Author } from "./Author";
+import { Devaluable } from "../serialization/serialization-types";
 
 export type Metadata = {
     author: Author;
@@ -44,7 +45,7 @@ type EditEdge = {
     child: EditNode;
 }
 
-export class EditNode implements EditRange, Devaluable<EditNode> {
+export class EditNode implements EditRange, Devaluable {
     private readonly outEdges: EditEdge[] = [];
     private readonly parents: EditNode[] = [];
 
@@ -65,13 +66,13 @@ export class EditNode implements EditRange, Devaluable<EditNode> {
         };
     }
 
-    static fromPOJO(obj: any): EditNode {
-        const node = new EditNode(obj.range, obj.text, obj.metadata);
-        if (obj.outEdges) {
-            (node as any).outEdges = obj.outEdges;
+    static fromPOJO(data: any): EditNode {
+        const node = new EditNode(data.range, data.text, data.metadata);
+        if (data.outEdges) {
+            (node as any).outEdges = data.outEdges;
         }
-        if (obj.parents) {
-            (node as any).parents = obj.parents;
+        if (data.parents) {
+            (node as any).parents = data.parents;
         }
         // Just set the parents for this node's children, since
         // the children should already be reconstructed
@@ -344,7 +345,7 @@ export type QueryParams = {
     continueSearch?: () => boolean;
 }
 
-export class Span implements Devaluable<Span> {
+export class Span implements Devaluable {
     constructor(public readonly start: number, public readonly end: number) {
         if (start > end) {
             throw new Error(`Invalid span: start ${start} > end ${end}`);
