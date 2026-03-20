@@ -4,7 +4,6 @@ import { PS2 } from '../progsnap/ProgSnap2Builder';
 import { describe, expect, it } from 'vitest';
 import { deserialize, serialize } from '../serialization/serialization-types';
 import { EditList } from '../edits/EditList';
-import { de, no } from 'zod/locales';
 import { EditNode } from '../shared/edit-data';
 
 function createBuilderFromFile(path: string, builder = new PS2.Builder()): PS2.Builder {
