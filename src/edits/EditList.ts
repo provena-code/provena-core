@@ -54,6 +54,9 @@ export class EditList implements Devaluable {
 
     searchCurrentEdits(query: string): QueryMatch[] {
         const currentText = this.toPlainText();
+        if (query.length === 0) {
+            return [];
+        }
         const allIndices = [];
         let index = currentText.indexOf(query);
         while (index !== -1) {
@@ -63,14 +66,24 @@ export class EditList implements Devaluable {
         return allIndices.map(startIndex => {
             const endIndex = startIndex + query.length - 1;
             let editIndex = this.findLastEditBefore(startIndex) + 1;
+            const firstEditIndex = editIndex;
             const matchPath: QueryMatch = [];
             while (editIndex < this.edits.length) {
                 const edit = this.edits[editIndex];
                 // Bound the range to be within this text
-                const rangeSubset = new Span(
+                const rangeSubset = Span.tryCreate(
                     Math.max(edit.range.start, startIndex),
                     Math.min(edit.range.end, endIndex)
                 );
+                if (!rangeSubset) {
+                    // This suggests there's no overlap between the edit and the query,
+                    // which shouldn't happen, since we're starting at the first edit that
+                    // overlaps it. Suggests there's an internal consistency error in the edits list.
+                    this.logError('Internal error: invalid range subset',
+                        edit.range, startIndex, endIndex, firstEditIndex, editIndex,
+                        this.isInternallyConsistent());
+                    break;
+                }
                 // QueryResults use local ranges, so shift to be relative to the
                 // start of this edit
                 const localRange = rangeSubset.shift(-edit.range.start);
@@ -86,6 +99,38 @@ export class EditList implements Devaluable {
             }
             return matchPath;
         });
+    }
+
+    /**
+     * Checks that the edits list is internally consistent, meaning that all edits are
+     * non-overlapping, contiguous, with a range length matching their text length, and
+     * sorted by their start position.
+     */
+    isInternallyConsistent(): boolean {
+        if (this.edits.length === 0) {
+            return true;
+        }
+        if (this.edits[0].range.start !== 0) {
+            this.logError('Internal consistency error: first edit does not start at 0', this.edits[0]);
+            return false;
+        }
+        for (let i = 0; i < this.edits.length - 1; i++) {
+            const current = this.edits[i];
+            const next = this.edits[i + 1];
+            if (current.range.end > next.range.start) {
+                this.logError('Internal consistency error: overlapping edits', current, next);
+                return false;
+            }
+            if (current.range.end < next.range.start) {
+                this.logError('Internal consistency error: non-contiguous edits', current, next);
+                return false;
+            }
+            if (current.range.end - current.range.start !== current.text.length) {
+                this.logError('Internal consistency error: edit range length does not match text length', current);
+                return false;
+            }
+        }
+        return true;
     }
 
     searchHistory(query: string, continueSearch?: () => boolean): QueryMatch | null {
@@ -164,6 +209,12 @@ export class EditList implements Devaluable {
         return result;
     }
 
+    /**
+     * Returns the index of the last edit whose end is before or at the given position,
+     * or -1 if there is no such edit.
+     * @param position A cursor position in the text. 0 is before the first character, 1 is between the first and second characters, etc.
+     * @returns
+     */
     private findLastEditBefore(position: number): number {
         let low = 0;
         let high = this.edits.length - 1;

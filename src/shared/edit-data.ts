@@ -352,6 +352,13 @@ export class Span implements Devaluable {
         }
     }
 
+    static tryCreate(start: number, end: number): Span | null {
+        if (start > end) {
+            return null;
+        }
+        return new Span(start, end);
+    }
+
     toPOJO() {
         return toPOJO(this);
     }
