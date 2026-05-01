@@ -72,6 +72,7 @@ export namespace PS2 {
                     const nextEvent = events[j];
                     if (event.EventID === nextEvent.ParentEventID) {
                         childEvents.push(nextEvent);
+                        i = j; // Move the outer loop index to skip over child events
                     } else {
                         break;
                     }
@@ -103,6 +104,7 @@ export namespace PS2 {
             // TODO: Handle copied text from other documents!
             if (isFileCopyTextEvent(event)) {
                 builder.addCopyEvent(event.CopiedText);
+                return;
             }
 
             if (!isFileEditEvent(event)) {
@@ -126,6 +128,8 @@ export namespace PS2 {
                 allEvents.push(child);
             }
 
+            // If we know this event was a paste, make sure the builder registers
+            // the the inserted text was copied before we add the edit event.
             if (event.EditType === 'Paste' && event.InsertText) {
                 // Note: we don't count empty copies
                 builder.addCopyEvent(event.InsertText);
