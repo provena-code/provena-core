@@ -10,10 +10,12 @@ export namespace PS2 {
     }
 
     export type EditHistoryFrame = {
+        eventIDs: string[];
         edits: EditRange[];
         editedRanges: EditedRange[];
         wasInsertion: boolean;
         wasDeletion: boolean;
+        isInternallyConsistent: boolean;
     }
 
     export function createEditList(events: MainTableEvent[]): EditRange[] {
@@ -146,11 +148,14 @@ export namespace PS2 {
             if (!this.addHistory) {
                 return;
             }
+            const eventIDs = [event.EventID || '', ...childEvents.map(e => e.EventID || '')];
             this.history.push({
+                eventIDs: eventIDs,
                 edits: builder.editList.copyEdits(),
                 editedRanges: changeEvents.map(ce => this.getEditedRange(ce)),
                 wasInsertion: changeEvents.some(ce => ce.text.length > 0),
                 wasDeletion: changeEvents.some(ce => ce.rangeLength > 0),
+                isInternallyConsistent: builder.editList.isInternallyConsistent(),
             });
         }
 
