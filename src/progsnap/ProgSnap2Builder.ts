@@ -36,6 +36,8 @@ export namespace PS2 {
         public readonly editListBuilder = new EditListBuilder(new EditList());
         public readonly editList = this.editListBuilder.editList;
         private readonly history: EditHistoryFrame[] = [];
+        // Used to keep track of events we haven't added to the history yet
+        private readonly unrecordedEvents: MainTableEvent[] = [];
 
         constructor(public readonly addHistory: boolean = false) {
 
@@ -89,6 +91,11 @@ export namespace PS2 {
             if (!event) {
                 console.error("Event is undefined or null");
                 return;
+            }
+
+            if (this.addHistory) {
+                this.unrecordedEvents.push(event);
+                this.unrecordedEvents.push(...childEvents);
             }
 
             const builder = this.editListBuilder;
@@ -148,7 +155,8 @@ export namespace PS2 {
             if (!this.addHistory) {
                 return;
             }
-            const eventIDs = [event.EventID || '', ...childEvents.map(e => e.EventID || '')];
+            const eventIDs = this.unrecordedEvents.map(e => e.EventID || '');
+            this.unrecordedEvents.length = 0; // Clear the unrecorded events
             this.history.push({
                 eventIDs: eventIDs,
                 edits: builder.editList.copyEdits(),
