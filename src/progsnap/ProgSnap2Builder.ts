@@ -18,18 +18,31 @@ export namespace PS2 {
         isInternallyConsistent: boolean;
     }
 
-    export function createEditList(events: MainTableEvent[]): EditRange[] {
-        return createEditListLogic(events, false) as EditRange[];
+    export type BuilderOptions = {
+        addHistory?: boolean;
+        newLineMode?: NewlineMode;
     }
 
-    export function createEditHistory(events: MainTableEvent[]): EditHistoryFrame[] {
-        return createEditListLogic(events, true) as EditHistoryFrame[];
+    export type NonHistoryBuilderOptions = Omit<BuilderOptions, 'addHistory'>;
+
+    export function createEditList(events: MainTableEvent[], options?: NonHistoryBuilderOptions): EditRange[] {
+        return createEditListLogic(events, { ...options, addHistory: false }) as EditRange[];
     }
 
-    function createEditListLogic(events: MainTableEvent[], withHistory: boolean): readonly EditHistoryFrame[] | EditRange[] {
-        const builder = new Builder(withHistory);
+    export function createEditHistory(events: MainTableEvent[], options?: NonHistoryBuilderOptions): EditHistoryFrame[] {
+        return createEditListLogic(events, { ...options, addHistory: true }) as EditHistoryFrame[];
+    }
+
+    function createEditListLogic(events: MainTableEvent[], options: BuilderOptions): readonly EditHistoryFrame[] | EditRange[] {
+        const builder = new Builder(options.addHistory, options.newLineMode);
         builder.addEvents(events);
-        return withHistory ? builder.getHistory() : builder.getEditsCopy();
+        return options.addHistory ? builder.getHistory() : builder.getEditsCopy();
+    }
+
+    export enum NewlineMode {
+        UseSource,
+        AddLineFeed,
+        AutoDetect
     }
 
     export class Builder {
@@ -39,8 +52,16 @@ export namespace PS2 {
         // Used to keep track of events we haven't added to the history yet
         private readonly unrecordedEvents: MainTableEvent[] = [];
 
-        constructor(public readonly addHistory: boolean = false) {
+        private detectedLinefeed = false;
 
+        private get shouldAddLineFeed() {
+            return this.newLineMode === NewlineMode.AddLineFeed ||
+                (this.newLineMode === NewlineMode.AutoDetect && this.detectedLinefeed);
+        }
+
+        constructor(
+            public readonly addHistory = false,
+            public readonly newLineMode = NewlineMode.UseSource) {
         }
 
         public getHistory(): readonly EditHistoryFrame[] {
@@ -68,7 +89,33 @@ export namespace PS2 {
             return undefined;
         }
 
+        private detectNeedForLineFeed(events: MainTableEvent[]) {
+            let newlines = 0;
+            let linefeeds = 0;
+            for (const event of events) {
+                if (isFileEditEvent(event) && event.EditType === 'Insert') {
+                    const insertedText = event.InsertText || '';
+                    if (insertedText.includes('\n')) {
+                        newlines++;
+                    }
+                    if (insertedText.includes('\r')) {
+                        linefeeds++;
+                    }
+                }
+            }
+            if (linefeeds > 0) {
+                this.detectedLinefeed = true;
+            }
+            if (linefeeds > 0 && linefeeds < newlines) {
+                // TODO: Figure out what to do here...
+                console.warn(`Detected mix of newlines and linefeeds in inserted text. Newlines: ${newlines}, Linefeeds: ${linefeeds}. Defaulting to adding linefeeds.`);
+            }
+        }
+
         public addEvents(events: MainTableEvent[]) {
+            if (this.newLineMode === NewlineMode.AutoDetect) {
+                this.detectNeedForLineFeed(events);
+            }
             for (let i = 0; i < events.length; i++) {
                 const event = events[i];
                 const childEvents: MainTableEvent[] = [];
@@ -105,8 +152,12 @@ export namespace PS2 {
             // If we're given the exact code, we should just update the document text
 
             if (event.Code) {
-                const status = builder.verifyDocumentText(event.Code, time, true);
-                // console.log(`Status: ${status}; Resetting text for ${event.CodeStateSection} to`, event.Code);
+                let code = event.Code;
+                if (this.shouldAddLineFeed) {
+                    code = code.replace(/\n/g, '\r\n');
+                }
+                const status = builder.verifyDocumentText(code, time, true);
+                // console.log(`Status: ${status}; Resetting text for ${event.CodeStateSection} to`, code);
                 return;
             }
 
