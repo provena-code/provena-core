@@ -1,6 +1,6 @@
 import { diffChars } from "diff";
 import { Author } from "../shared/Author";
-import { QueryMatch, Span } from "../shared/edit-data";
+import { QueryMatchPart, QueryMatch, Span } from "../shared/edit-data";
 import { EditEvent, IChangeEvent } from "./EditEvent";
 import { continueWithinTimeLimit, EditList } from "./EditList";
 
@@ -55,7 +55,18 @@ export class EditListBuilder {
             return Author.Unknown;
         }
 
-        if (edits.length > 1) {
+        // If this edit only inserts whitespace, even if that
+        // came from the system, it's cleaner just to call it
+        // a user edit, since whitesapce isn't meaningful here.
+        if (edits.every(edit => {
+            return edit.text.trim().length === 0;
+        })) {
+            return Author.User;
+        }
+
+        // If there are multiple insertions in a single edit, this
+        // was likely the IDE's action, whether user-initiated or not.
+        if (edits.filter(edit => edit.text.length > 0).length > 1) {
             // TODO: Could check if this text already exists
             // or for common actions (e.g. rename)
             return Author.System;
@@ -127,14 +138,16 @@ export class EditListBuilder {
                     rangeOffset: offset,
                     rangeLength: 0,
                 }, {...metadata});
+                offset += part.value.length;
             } else if (part.removed) {
                 this.editList.addEdit({
                     text: '',
                     rangeOffset: offset,
                     rangeLength: part.value.length,
                 }, {...metadata});
+            } else {
+                offset += part.value.length;
             }
-            offset += part.value.length;
         }
 
         const finalText = this.editList.toPlainText();
@@ -269,11 +282,25 @@ export class EditListBuilder {
         this.copiedText = new CopiedText(copiedText, match);
     }
 
+    /**
+     * Returns the number of characters in this match that were authored by the user.
+     * @param match
+     */
+    private countUserAuthorship(match: QueryMatch): number {
+        return match.reduce((count, part) => {
+            if (part.node.metadata.author === Author.User) {
+                return count + part.range.length;
+            }
+            return count;
+        }, 0);
+    }
+
     private matchText(text: string, searchHistory: boolean): QueryMatch | null {
         const currentMatches = this.editList.searchCurrentEdits(text);
         if (currentMatches.length > 0) {
-            // TODO: Choose the most generous one
-            return currentMatches[0];
+            return currentMatches.reduce((best, match) => {
+                return this.countUserAuthorship(match) > this.countUserAuthorship(best) ? match : best;
+            });
         }
         if (!searchHistory) {
             return null;

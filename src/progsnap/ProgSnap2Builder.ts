@@ -156,6 +156,10 @@ export namespace PS2 {
                 if (this.shouldAddLineFeed) {
                     code = code.replace(/\n/g, '\r\n');
                 }
+                if (builder.editList.isEmpty()) {
+                    builder.editList.setInitialText(code, time);
+                }
+
                 const status = builder.verifyDocumentText(code, time, true);
                 // console.log(`Status: ${status}; Resetting text for ${event.CodeStateSection} to`, code);
                 return;

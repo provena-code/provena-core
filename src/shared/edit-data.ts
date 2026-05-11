@@ -331,11 +331,12 @@ export class EditNode implements EditRange, Devaluable {
     }
 }
 
-export type QueryMatch = {
+export type QueryMatchPart = {
     node: EditNode;
     /** A range of indices (inclusive) within the node's text that match. */
     range: Span;
-}[];
+}
+export type QueryMatch = QueryMatchPart[];
 
 export type QueryParams = {
     query: string;
@@ -365,6 +366,10 @@ export class Span implements Devaluable {
 
     static fromPOJO(data: any): Span {
         return new Span(data.start, data.end);
+    }
+
+    get length() {
+        return this.end - this.start;
     }
 
     contains(position: number) {
