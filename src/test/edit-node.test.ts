@@ -19,7 +19,7 @@ describe('EditNode search', () => {
         expect(match?.length).toBe(1);
         expect(match?.[0].node).toBe(node);
         expect(match?.[0].range.start).toBe(6);
-        expect(match?.[0].range.end).toBe(10);
+        expect(match?.[0].range.end).toBe(11);
     });
 
     it('finds text across multiple nodes', () => {
@@ -31,10 +31,10 @@ describe('EditNode search', () => {
         expect(match?.length).toBe(2);
         expect(match?.[0].node).toBe(parent);
         expect(match?.[0].range.start).toBe(2);
-        expect(match?.[0].range.end).toBe(5);
+        expect(match?.[0].range.end).toBe(6);
         expect(match?.[1].node).toBe(child);
         expect(match?.[1].range.start).toBe(0);
-        expect(match?.[1].range.end).toBe(1);
+        expect(match?.[1].range.end).toBe(2);
     });
 
     it('finds matches in children when that parent does not match', () => {
@@ -46,7 +46,7 @@ describe('EditNode search', () => {
         expect(match?.length).toBe(1);
         expect(match?.[0].node).toBe(child1);
         expect(match?.[0].range.start).toBe(1);
-        expect(match?.[0].range.end).toBe(3);
+        expect(match?.[0].range.end).toBe(4);
     });
     it('finds the most recent match of multiple', () => {
         const root = createNode('Start ');
@@ -59,7 +59,7 @@ describe('EditNode search', () => {
         expect(match?.length).toBe(1);
         expect(match?.[0].node).toBe(child2);
         expect(match?.[0].range.start).toBe(8);
-        expect(match?.[0].range.end).toBe(12);
+        expect(match?.[0].range.end).toBe(13);
     });
     it('returns null when no match', () => {
         const node = createNode('Hello world');

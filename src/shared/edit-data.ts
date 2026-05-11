@@ -213,7 +213,7 @@ export class EditNode implements EditRange, Devaluable {
             if (match) {
                 match.unshift({
                     node: this,
-                    range: new Span(startNodeIndex, nNodeIndex - 1)
+                    range: new Span(startNodeIndex, nNodeIndex)
                 });
                 return match;
             }
@@ -295,7 +295,7 @@ export class EditNode implements EditRange, Devaluable {
                 }
                 return [{
                     node: this,
-                    range: new Span(startNodeIndex, Math.min(nNodeIndex - 1, this.text.length - 1))
+                    range: new Span(startNodeIndex, Math.min(nNodeIndex, this.text.length))
                 }];
             }
             // We didn't find a full match starting at this index
@@ -333,21 +333,36 @@ export class EditNode implements EditRange, Devaluable {
 
 export type QueryMatchPart = {
     node: EditNode;
-    /** A range of indices (inclusive) within the node's text that match. */
+    /** A range of indices (start, exclusive end) within the node's text that match. */
     range: Span;
 }
 export type QueryMatch = QueryMatchPart[];
 
 export type QueryParams = {
     query: string;
+    /**
+     * If true, only matches starting at the specified index in the node will be considered.
+     * Otherwise, matches can start in any descendant of the node.
+     */
     exactIndex: boolean;
+    /** Temporary map of already checked nodes and indices. */
     checked?: Map<EditNode, number[]>;
+    /**
+     * If provided, on returns matches that can lead to this subsequent edit.
+     * This is used primarily to find nodes as part of an undo/redo edit.
+     */
     subsequentEdit?: EditNode;
+    /** Function to determine if the search should continue. */
     continueSearch?: () => boolean;
 }
 
 export class Span implements Devaluable {
-    constructor(public readonly start: number, public readonly end: number) {
+    constructor(
+        /** Start index of the span, inclusive */
+        public readonly start: number,
+        /** End index of the span, exclusive */
+        public readonly end: number
+    ) {
         if (start > end) {
             throw new Error(`Invalid span: start ${start} > end ${end}`);
         }
@@ -368,6 +383,7 @@ export class Span implements Devaluable {
         return new Span(data.start, data.end);
     }
 
+    // Note: The end index is exclusive for EditNodes
     get length() {
         return this.end - this.start;
     }

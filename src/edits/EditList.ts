@@ -64,7 +64,7 @@ export class EditList implements Devaluable {
             index = currentText.indexOf(query, index + 1);
         }
         return allIndices.map(startIndex => {
-            const endIndex = startIndex + query.length - 1;
+            const endIndex = startIndex + query.length;
             let editIndex = this.findLastEditBefore(startIndex) + 1;
             const firstEditIndex = editIndex;
             const matchPath: QueryMatch = [];
@@ -88,7 +88,9 @@ export class EditList implements Devaluable {
                 // start of this edit
                 const localRange = rangeSubset.shift(-edit.range.start);
                 matchPath.push({
-                    node: edit,
+                    // Make a copy in case the edit is modified later
+                    // We want the authorship info at the time of the copy
+                    node: edit.shallowCopy(),
                     range: localRange
                 });
                 // If we've reached the end of the query, stop
@@ -125,7 +127,7 @@ export class EditList implements Devaluable {
                 this.logError('Internal consistency error: non-contiguous edits', current, next);
                 return false;
             }
-            if (current.range.end - current.range.start !== current.text.length) {
+            if (current.range.length !== current.text.length) {
                 this.logError('Internal consistency error: edit range length does not match text length', current);
                 return false;
             }
@@ -358,7 +360,10 @@ export class EditList implements Devaluable {
                 let spanStart = replacedSpan.start;
                 let lastNode = priorEdit;
                 for (const match of pasteMatch) {
-                    const text = match.node.text.substring(match.range.start, match.range.end + 1);
+                    const text = match.node.text.substring(match.range.start, match.range.end);
+                    if (match.range.end > match.node.text.length) {
+                        this.logError('Internal error: paste match range exceeds node text length', match);
+                    }
                     const range = new Span(spanStart, spanStart + text.length);
                     spanStart += text.length;
                     const nodeMetadata = {
@@ -424,6 +429,11 @@ export class EditList implements Devaluable {
             this.head.addChild(this.edits[0]);
         }
 
+        // Check internal consistency immediately
+        if (!this.isInternallyConsistent()) {
+            this.logError('Internal consistency check failed after adding edit');
+        }
+
         this.trace('Final edits:', this.toStringWithRanges());
     }
 
@@ -460,7 +470,7 @@ export class EditList implements Devaluable {
             if (!edge.textIndices.includes(priorEdit.text.length)) {
                 continue;
             }
-            matchPath = edge.child.search({ query: text, exactIndex: true, checked: ignoreMap, subsequentEdit: subsequentEdit }); // TODO: change to true when done testing
+            matchPath = edge.child.search({ query: text, exactIndex: true, checked: ignoreMap, subsequentEdit: subsequentEdit });
             if (matchPath) {
                 break;
             }
@@ -475,7 +485,7 @@ export class EditList implements Devaluable {
         // TODO: I can't think of any way this would happen. If so,
         // then I could definitely optimize search by requiring whole ranges.
         for (const match of matchPath) {
-            if (match.range.start !== 0 || match.range.end !== match.node.text.length - 1) {
+            if (match.range.start !== 0 || match.range.end !== match.node.text.length) {
                 this.logError('Internal error: undo/redo match is not a full edit');
             }
         }
