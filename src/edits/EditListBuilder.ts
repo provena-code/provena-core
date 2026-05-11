@@ -48,6 +48,14 @@ export class EditListBuilder {
         public readonly config: AttributionConfig = new AttributionConfig()
     ) {}
 
+    public trace(...args: any[]) {
+        this.editList.trace(...args);
+    }
+
+    public logError(...args: any[]) {
+        this.editList.logError(...args);
+    }
+
     private getAuthor(edits: readonly IChangeEvent[], isUndoOrRedo: boolean): Author {
         if (isUndoOrRedo) {
             // Undo/redo should not create EditNodes, so if they
@@ -118,7 +126,7 @@ export class EditListBuilder {
 
         if (!isReconcilable)
         {
-            console.warn(`Significant document text mismatch detected. Restarting.
+            this.trace(`Warning: Significant document text mismatch detected. Restarting.
                 Overlap ratio: ${overlapRatio.toFixed(3)},
                 Longest kept ratio: ${longestKeptRatio.toFixed(3)}`);
             this.resetText(documentText, time);
@@ -152,7 +160,7 @@ export class EditListBuilder {
 
         const finalText = this.editList.toPlainText();
         if (finalText !== documentText) {
-            console.error('Document text verification failed after applying diffs.');
+            this.logError('Document text verification failed after applying diffs.');
             this.resetText(documentText, time);
             return DocumentStatus.Irreconcilable;
         }

@@ -16,6 +16,7 @@ export namespace PS2 {
         wasInsertion: boolean;
         wasDeletion: boolean;
         isInternallyConsistent: boolean;
+        errors: any[][];
     }
 
     export type BuilderOptions = {
@@ -84,7 +85,7 @@ export namespace PS2 {
                 this.addEvent(parsedEvent);
                 return parsedEvent;
             } catch (e) {
-                console.error("Failed to parse event:", event, e);
+                this.editListBuilder.logError("Failed to parse event:", event, e);
             }
             return undefined;
         }
@@ -135,8 +136,18 @@ export namespace PS2 {
         // Private because we might have multiple events with the same
         // parent, so those need to be processed together
         private addEvent(event: MainTableEvent, childEvents: MainTableEvent[] = []) {
+            const builder = this.editListBuilder;
+
+            const errors = [] as any[][];
+            if (this.addHistory) {
+                builder.editList.logError = (...args: any[]) => {
+                    console.error(...args);
+                    errors.push(args);
+                }
+            }
+
             if (!event) {
-                console.error("Event is undefined or null");
+                builder.logError("Event is undefined or null");
                 return;
             }
 
@@ -145,7 +156,6 @@ export namespace PS2 {
                 this.unrecordedEvents.push(...childEvents);
             }
 
-            const builder = this.editListBuilder;
              // parse event.ClientTimestamp as ISO string
             const time = new Date(event?.ClientTimestamp || '').getTime();
 
@@ -181,12 +191,12 @@ export namespace PS2 {
 
             for (const child of childEvents) {
                 if (!isFileEditEvent(child)) {
-                    console.error("Child events must share EventTypes", event, child);
+                    builder.logError("Child events must share EventTypes", event, child);
                     continue;
                 }
                 const isChildUndoOrRedo = child.EditType === 'Undo' || child.EditType === 'Redo';
                 if (isUndoOrRedo !== isChildUndoOrRedo) {
-                    console.error("Mismatched Undo/Redo between parent and child events", event, child);
+                    builder.logError("Mismatched Undo/Redo between parent and child events", event, child);
                     continue;
                 }
                 allEvents.push(child);
@@ -219,6 +229,7 @@ export namespace PS2 {
                 wasInsertion: changeEvents.some(ce => ce.text.length > 0),
                 wasDeletion: changeEvents.some(ce => ce.rangeLength > 0),
                 isInternallyConsistent: builder.editList.isInternallyConsistent(),
+                errors: errors,
             });
         }
 
