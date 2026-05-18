@@ -9,5 +9,5 @@
     "composite": true,
     "declarationDir": "dist/types",
   },
-  "exclude": ["vitest.config.*", "node_modules"]
+  "exclude": ["vitest.config.*", "node_modules", "dist"]
 }
