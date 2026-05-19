@@ -9,14 +9,17 @@ export namespace PS2 {
         end: number;
     }
 
-    export type EditHistoryFrame = {
-        eventIDs: string[];
+    export type AnnotatedDocument = {
         edits: EditRange[];
+        errors: any[][];
+        isInternallyConsistent: boolean;
+    }
+
+    export type EditHistoryFrame = AnnotatedDocument & {
+        eventIDs: string[];
         editedRanges: EditedRange[];
         wasInsertion: boolean;
         wasDeletion: boolean;
-        isInternallyConsistent: boolean;
-        errors: any[][];
     }
 
     export type BuilderOptions = {
@@ -26,18 +29,22 @@ export namespace PS2 {
 
     export type NonHistoryBuilderOptions = Omit<BuilderOptions, 'addHistory'>;
 
-    export function createEditList(events: MainTableEvent[], options?: NonHistoryBuilderOptions): EditRange[] {
-        return createEditListLogic(events, { ...options, addHistory: false }) as EditRange[];
+    export function createEditList(events: MainTableEvent[], options?: NonHistoryBuilderOptions): AnnotatedDocument {
+        return createEditListLogic(events, { ...options, addHistory: false }) as AnnotatedDocument;
     }
 
     export function createEditHistory(events: MainTableEvent[], options?: NonHistoryBuilderOptions): EditHistoryFrame[] {
         return createEditListLogic(events, { ...options, addHistory: true }) as EditHistoryFrame[];
     }
 
-    function createEditListLogic(events: MainTableEvent[], options: BuilderOptions): readonly EditHistoryFrame[] | EditRange[] {
+    function createEditListLogic(events: MainTableEvent[], options: BuilderOptions): readonly EditHistoryFrame[] | AnnotatedDocument {
         const builder = new Builder(options.addHistory, options.newLineMode);
         builder.addEvents(events);
-        return options.addHistory ? builder.getHistory() : builder.getEditsCopy();
+        return options.addHistory ? builder.getHistory() : {
+            edits: builder.getEditsCopy(),
+            errors: builder.errors.slice(),
+            isInternallyConsistent: builder.editList.isInternallyConsistent(),
+        };
     }
 
     export enum NewlineMode {
@@ -52,6 +59,7 @@ export namespace PS2 {
         private readonly history: EditHistoryFrame[] = [];
         // Used to keep track of events we haven't added to the history yet
         private readonly unrecordedEvents: MainTableEvent[] = [];
+        public readonly errors: any[][] = [];
 
         private detectedLinefeed = false;
 
@@ -138,12 +146,10 @@ export namespace PS2 {
         private addEvent(event: MainTableEvent, childEvents: MainTableEvent[] = []) {
             const builder = this.editListBuilder;
 
-            const errors = [] as any[][];
-            if (this.addHistory) {
-                builder.editList.logError = (...args: any[]) => {
-                    console.error(...args);
-                    errors.push(args);
-                }
+            const startErrorIndex = this.errors.length;
+            builder.editList.logError = (...args: any[]) => {
+                console.error(...args);
+                this.errors.push(args);
             }
 
             if (!event) {
@@ -220,6 +226,9 @@ export namespace PS2 {
             if (!this.addHistory) {
                 return;
             }
+            // Get just the errors for this frame
+            const errors = this.errors.slice(startErrorIndex);
+
             const eventIDs = this.unrecordedEvents.map(e => e.EventID || '');
             this.unrecordedEvents.length = 0; // Clear the unrecorded events
             this.history.push({
