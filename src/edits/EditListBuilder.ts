@@ -295,12 +295,20 @@ export class EditListBuilder {
         if (this.copiedText && this.copiedText.text === copiedText) {
             return true;
         }
-        let match: QueryMatch | null;
+        let match: QueryMatch | null = null;
         if (sourceLocation) {
-            if (this.editList.toPlainText().substring(sourceLocation, sourceLocation + copiedText.length) !== copiedText) {
-                this.logError("Copied text does not match document text at SourceLocation", copiedText, sourceLocation);
+            const textAtLocation = this.editList.toPlainText().substring(sourceLocation, sourceLocation + copiedText.length);
+            if (textAtLocation !== copiedText) {
+                match = this.matchText(copiedText, true);
+                // TODO: I'm not sure if it should be an error either way; can't always fix it...
+                // Only raise this to the level of an error if we can't correct it with a local match
+                const log_fn = match ? console.warn : this.logError;
+                // call with this arg
+                log_fn.call(this, "Copied text does not match document text at SourceLocation", sourceLocation, copiedText, 'vs', textAtLocation);
             }
-            match = this.editList.getMatchAtIndex(sourceLocation, copiedText.length);
+            if (match == null) {
+                match = this.editList.getMatchAtIndex(sourceLocation, copiedText.length);
+            }
         } else {
             match = this.matchText(copiedText, true);
         }
