@@ -14,7 +14,7 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 rl.on("line", line => {
     try {
         const rows = JSON.parse(line);
-        const result = PS2.createEditList(rows);
+        const result = PS2.createEditList(rows, { newLineMode: PS2.NewlineMode.AutoDetect });
         const simplifiedResult = {
             ...result,
             errors: result.errors.map(simplifyError)
