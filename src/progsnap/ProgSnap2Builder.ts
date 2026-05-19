@@ -59,6 +59,9 @@ export namespace PS2 {
         private readonly history: EditHistoryFrame[] = [];
         // Used to keep track of events we haven't added to the history yet
         private readonly unrecordedEvents: MainTableEvent[] = [];
+        // We track the last recorded error index so we can get just the
+        // errors for the current frame when building history
+        private lastRecordedErrorLength = 0;
         public readonly errors: any[][] = [];
 
         private detectedLinefeed = false;
@@ -146,7 +149,6 @@ export namespace PS2 {
         private addEvent(event: MainTableEvent, childEvents: MainTableEvent[] = []) {
             const builder = this.editListBuilder;
 
-            const startErrorIndex = this.errors.length;
             builder.editList.logError = (...args: any[]) => {
                 console.error(...args);
                 this.errors.push(args);
@@ -183,7 +185,12 @@ export namespace PS2 {
 
             // TODO: Handle copied text from other documents!
             if (isFileCopyTextEvent(event)) {
-                builder.addCopyEvent(event.CopiedText);
+                let sourceLocation = event.SourceLocation ? parseInt(event.SourceLocation) : undefined;
+                if (sourceLocation !== undefined && isNaN(sourceLocation)) {
+                    sourceLocation = undefined;
+                }
+                builder.addCopyEvent(event.CopiedText, sourceLocation);
+                // console.log('Copy!', event.CopiedText, event, builder.lastCopiedText, builder.lastCopiedTextMatch);
                 return;
             }
 
@@ -226,8 +233,10 @@ export namespace PS2 {
             if (!this.addHistory) {
                 return;
             }
+
             // Get just the errors for this frame
-            const errors = this.errors.slice(startErrorIndex);
+            const errors = this.errors.slice(this.lastRecordedErrorLength);
+            this.lastRecordedErrorLength = this.errors.length;
 
             const eventIDs = this.unrecordedEvents.map(e => e.EventID || '');
             this.unrecordedEvents.length = 0; // Clear the unrecorded events

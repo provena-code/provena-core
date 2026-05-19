@@ -52,6 +52,45 @@ export class EditList implements Devaluable {
         return this.head.getChildren();
     }
 
+    getMatchAtIndex(startIndex: number, length: number): QueryMatch {
+        const endIndex = startIndex + length;
+        let editIndex = this.findLastEditBefore(startIndex) + 1;
+        const firstEditIndex = editIndex;
+        const matchPath: QueryMatch = [];
+        while (editIndex < this.edits.length) {
+            const edit = this.edits[editIndex];
+            // Bound the range to be within this text
+            const rangeSubset = Span.tryCreate(
+                Math.max(edit.range.start, startIndex),
+                Math.min(edit.range.end, endIndex)
+            );
+            if (!rangeSubset) {
+                // This suggests there's no overlap between the edit and the query,
+                // which shouldn't happen, since we're starting at the first edit that
+                // overlaps it. Suggests there's an internal consistency error in the edits list.
+                this.logError('Internal error: invalid range subset',
+                    edit.range, startIndex, endIndex, firstEditIndex, editIndex,
+                    this.isInternallyConsistent());
+                break;
+            }
+            // QueryResults use local ranges, so shift to be relative to the
+            // start of this edit
+            const localRange = rangeSubset.shift(-edit.range.start);
+            matchPath.push({
+                // Make a copy in case the edit is modified later
+                // We want the authorship info at the time of the copy
+                node: edit.shallowCopy(),
+                range: localRange
+            });
+            // If we've reached the end of the query, stop
+            if (rangeSubset.end === endIndex) {
+                break;
+            }
+            editIndex++;
+        }
+        return matchPath;
+    }
+
     searchCurrentEdits(query: string): QueryMatch[] {
         const currentText = this.toPlainText();
         if (query.length === 0) {
@@ -63,44 +102,7 @@ export class EditList implements Devaluable {
             allIndices.push(index);
             index = currentText.indexOf(query, index + 1);
         }
-        return allIndices.map(startIndex => {
-            const endIndex = startIndex + query.length;
-            let editIndex = this.findLastEditBefore(startIndex) + 1;
-            const firstEditIndex = editIndex;
-            const matchPath: QueryMatch = [];
-            while (editIndex < this.edits.length) {
-                const edit = this.edits[editIndex];
-                // Bound the range to be within this text
-                const rangeSubset = Span.tryCreate(
-                    Math.max(edit.range.start, startIndex),
-                    Math.min(edit.range.end, endIndex)
-                );
-                if (!rangeSubset) {
-                    // This suggests there's no overlap between the edit and the query,
-                    // which shouldn't happen, since we're starting at the first edit that
-                    // overlaps it. Suggests there's an internal consistency error in the edits list.
-                    this.logError('Internal error: invalid range subset',
-                        edit.range, startIndex, endIndex, firstEditIndex, editIndex,
-                        this.isInternallyConsistent());
-                    break;
-                }
-                // QueryResults use local ranges, so shift to be relative to the
-                // start of this edit
-                const localRange = rangeSubset.shift(-edit.range.start);
-                matchPath.push({
-                    // Make a copy in case the edit is modified later
-                    // We want the authorship info at the time of the copy
-                    node: edit.shallowCopy(),
-                    range: localRange
-                });
-                // If we've reached the end of the query, stop
-                if (rangeSubset.end === endIndex) {
-                    break;
-                }
-                editIndex++;
-            }
-            return matchPath;
-        });
+        return allIndices.map(index => this.getMatchAtIndex(index, query.length));
     }
 
     /**

@@ -43,6 +43,10 @@ export class EditListBuilder {
         return this.copiedText?.text;
     }
 
+    public get lastCopiedTextMatch() {
+        return this.copiedText?.match;
+     }
+
     constructor(
         public readonly editList: EditList,
         public readonly config: AttributionConfig = new AttributionConfig()
@@ -278,16 +282,30 @@ export class EditListBuilder {
 
     }
 
-    public addCopyEvent(copiedText: string) {
+    /**
+     * Registers a copy event and attempts to locate the text being copied
+     * @param copiedText
+     * @returns True if the copied text was successfully matched (or had been previously)
+     */
+    public addCopyEvent(copiedText: string, sourceLocation?: number): boolean {
         if (!copiedText || copiedText.length === 0) {
             this.copiedText = null;
-            return;
+            return false;
         }
         if (this.copiedText && this.copiedText.text === copiedText) {
-            return;
+            return true;
         }
-        const match = this.matchText(copiedText, true);
+        let match: QueryMatch | null;
+        if (sourceLocation) {
+            if (this.editList.toPlainText().substring(sourceLocation, sourceLocation + copiedText.length) !== copiedText) {
+                this.logError("Copied text does not match document text at SourceLocation", copiedText, sourceLocation);
+            }
+            match = this.editList.getMatchAtIndex(sourceLocation, copiedText.length);
+        } else {
+            match = this.matchText(copiedText, true);
+        }
         this.copiedText = new CopiedText(copiedText, match);
+        return match !== null;
     }
 
     /**
