@@ -7,9 +7,9 @@ const path = require('path');
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-// TODO: This only builds the CLI app.
+// Note: This only builds the CLI app.
 // If I ever want to distribute this as a standalone library
-// that isn't build by the consumer's build system, I'll need to add
+// that isn't built by the consumer's build system, I'll need to add
 // another config here.
 
 /** @type {(env: any) => import('webpack').Configuration} */

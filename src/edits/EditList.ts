@@ -1,6 +1,6 @@
 import { Devaluable } from '../serialization/serialization-types';
 import { Author } from '../shared/Author';
-import { copyEditRange, EditNode, EditRange, Metadata, QueryMatch, Span, toPOJO } from '../shared/edit-data';
+import { copyEditRange, EditNode, EditRange, Metadata, QueryMatch, Span } from '../shared/edit-data';
 import { IChangeEvent } from './EditEvent';
 
 function createHeadNode(): EditNode {
@@ -455,7 +455,6 @@ export class EditList implements Devaluable {
             return null;
         }
 
-        // TODO: Handle index = 0
         const priorEdit = index === 0 ? this.head : this.edits[index - 1];
 
         let matchPath;
@@ -478,7 +477,7 @@ export class EditList implements Devaluable {
             }
         }
         if (!matchPath) {
-            // TODO: Remove; juts for debugging
+            // This line can be useful for debugging this error
             // this.findUndoOrRedoMatch(true, index, subsequentEdit, text);
             this.logError('Internal error: undo/redo edit not found in subsequent edit');
             return null;
@@ -576,11 +575,11 @@ export class EditList implements Devaluable {
         }).join('');
     }
 
-    // TODO: Not sure how I want to copy the nodes
-    // or if that's even necessary with the new approach
+    // TODO: Maybe delete this method? It's not a full copy, not sure if it's used...
     copy() {
         const newList = new EditList();
-        // TODO: Note shallow copy
+        // Note: shallow copy avoids adding parent information, which
+        // is important for serialization
         newList.edits = this.edits.map(e => e.shallowCopy());
         return newList;
     }
