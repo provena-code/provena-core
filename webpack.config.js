@@ -12,31 +12,35 @@ const path = require('path');
 // that isn't build by the consumer's build system, I'll need to add
 // another config here.
 
-/** @type WebpackConfig */
-const extensionConfig = {
-  target: 'node',
-  entry: './src/cli/App.ts',
-  output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'App.js',
-  },
-  resolve: {
-    extensions: ['.ts', '.js'],
-  },
-  module: {
-    rules: [
-      {
-        test: /\.ts$/,
-        exclude: /node_modules/,
-        use: [
-          {
-            loader: 'ts-loader'
-          }
-        ]
-      }
-    ]
-  },
-  mode: 'production',
+/** @type {(env: any) => import('webpack').Configuration} */
+const extensionConfig = (env) => {
+  const isProduction = env && env.production;
+  return {
+    target: 'node',
+    entry: './src/cli/App.ts',
+    output: {
+      path: path.resolve(__dirname, 'dist'),
+      filename: 'App.js',
+    },
+    resolve: {
+      extensions: ['.ts', '.js'],
+    },
+    mode: isProduction ? 'production' : 'development',
+    devtool: isProduction ? false : 'source-map',
+    module: {
+      rules: [
+        {
+          test: /\.ts$/,
+          exclude: /node_modules/,
+          use: [
+            {
+              loader: 'ts-loader'
+            }
+          ]
+        }
+      ]
+    },
+  }
 };
 
 module.exports = [extensionConfig];
