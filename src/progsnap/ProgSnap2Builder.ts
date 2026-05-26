@@ -20,6 +20,7 @@ export namespace PS2 {
         editedRanges: EditedRange[];
         wasInsertion: boolean;
         wasDeletion: boolean;
+        currentClipboard: string;
     }
 
     export type BuilderOptions = {
@@ -63,6 +64,7 @@ export namespace PS2 {
         // errors for the current frame when building history
         private lastRecordedErrorLength = 0;
         public readonly errors: any[][] = [];
+        private currentClipboard: string = '';
 
         private detectedLinefeed = false;
 
@@ -190,6 +192,7 @@ export namespace PS2 {
                     sourceLocation = undefined;
                 }
                 builder.addCopyEvent(event.CopiedText, sourceLocation);
+                this.currentClipboard = event.CopiedText;
                 // console.log('Copy!', event.CopiedText, event, builder.lastCopiedText, builder.lastCopiedTextMatch);
                 return;
             }
@@ -220,6 +223,7 @@ export namespace PS2 {
             if (event.EditType === 'Paste' && event.InsertText) {
                 // Note: we don't count empty copies
                 builder.addCopyEvent(event.InsertText);
+                this.currentClipboard = event.InsertText;
             }
 
             const changeEvents = allEvents.map(e => this.getChangeEvent(e));
@@ -248,6 +252,7 @@ export namespace PS2 {
                 wasDeletion: changeEvents.some(ce => ce.rangeLength > 0),
                 isInternallyConsistent: builder.editList.isInternallyConsistent(),
                 errors: errors,
+                currentClipboard: this.currentClipboard,
             });
         }
 
