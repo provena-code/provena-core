@@ -275,6 +275,10 @@ export class EditList implements Devaluable {
     }
 
     addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false, pasteMatch: QueryMatch | null = null) {
+        if (pasteMatch?.length === 0) {
+            this.logError('Internal error: paste match is empty', pasteMatch);
+        }
+
         this.trace('Current edits:', this.toStringWithRanges());
 
         const { text, rangeLength, rangeOffset } = changeEvent;
@@ -356,7 +360,7 @@ export class EditList implements Devaluable {
                 this.trace('Reusing existing edit', matchPath[0]);
                 this.insertQueryMatch(replacedSpan.start, matchPath, metadata.endTime, index);
 
-            } else if (pasteMatch) {
+            } else if (pasteMatch && pasteMatch.length > 0) {
                 this.trace('Using paste match', pasteMatch);
                 const nodes = [];
                 let spanStart = replacedSpan.start;
