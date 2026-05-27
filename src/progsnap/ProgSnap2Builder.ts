@@ -34,8 +34,14 @@ export namespace PS2 {
         return createEditListLogic(events, { ...options, addHistory: false }) as AnnotatedDocument;
     }
 
-    export function createEditHistory(events: MainTableEvent[], options?: NonHistoryBuilderOptions): EditHistoryFrame[] {
-        return createEditListLogic(events, { ...options, addHistory: true }) as EditHistoryFrame[];
+    export function createEditHistory(events: MainTableEvent[], options?: NonHistoryBuilderOptions): readonly EditHistoryFrame[] {
+        return createEditListLogic(events, { ...options, addHistory: true }) as readonly EditHistoryFrame[];
+    }
+
+    export async function createEditHistoryAsync(events: MainTableEvent[], yielder: () => Promise<any>, options?: NonHistoryBuilderOptions): Promise<readonly EditHistoryFrame[]> {
+        const builder = new Builder(true, options?.newLineMode);
+        await builder.addEventsAsync(events, yielder);
+        return builder.getHistory();
     }
 
     function createEditListLogic(events: MainTableEvent[], options: BuilderOptions): readonly EditHistoryFrame[] | AnnotatedDocument {
@@ -52,6 +58,11 @@ export namespace PS2 {
         UseSource,
         AddLineFeed,
         AutoDetect
+    }
+
+    type EventWithChildren = {
+        event: MainTableEvent;
+        childEvents: MainTableEvent[];
     }
 
     export class Builder {
@@ -103,7 +114,10 @@ export namespace PS2 {
             return undefined;
         }
 
-        private detectNeedForLineFeed(events: MainTableEvent[]) {
+        private detectNeedForLineFeedIfNeeded(events: MainTableEvent[]) {
+            if (this.newLineMode !== NewlineMode.AutoDetect) {
+                return;
+            }
             let newlines = 0;
             let linefeeds = 0;
             for (const event of events) {
@@ -126,10 +140,8 @@ export namespace PS2 {
             }
         }
 
-        public addEvents(events: MainTableEvent[]) {
-            if (this.newLineMode === NewlineMode.AutoDetect) {
-                this.detectNeedForLineFeed(events);
-            }
+        private extractEventsWithChildren(events: MainTableEvent[]): EventWithChildren[] {
+            const eventsWithChildren: EventWithChildren[] = [];
             for (let i = 0; i < events.length; i++) {
                 const event = events[i];
                 const childEvents: MainTableEvent[] = [];
@@ -142,8 +154,29 @@ export namespace PS2 {
                         break;
                     }
                 }
-                this.addEvent(event, childEvents);
+                eventsWithChildren.push({ event, childEvents });
             }
+            return eventsWithChildren;
+        }
+
+        public async addEventsAsync(events: MainTableEvent[], yielder: () => Promise<void>) {
+            this.detectNeedForLineFeedIfNeeded(events);
+            const eventsWithChildren = this.extractEventsWithChildren(events);
+            let i = 0;
+            for (const { event, childEvents } of eventsWithChildren) {
+                this.addEvent(event, childEvents);
+                if (i++ % 100 === 0) {
+                    await yielder();
+                }
+            }
+        }
+
+        public addEvents(events: MainTableEvent[]) {
+            this.detectNeedForLineFeedIfNeeded(events);
+            const eventsWithChildren = this.extractEventsWithChildren(events);
+            eventsWithChildren.forEach(({ event, childEvents }) => {
+                this.addEvent(event, childEvents);
+            });
         }
 
         // Private because we might have multiple events with the same
