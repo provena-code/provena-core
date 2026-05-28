@@ -10,9 +10,9 @@ function simplifyError(error: any[]): string {
     }).join(" ");
 }
 
-const defaultRoot = 'http://127.0.0.1:8001/';
+const defaultAPIRoot = 'http://127.0.0.1:8001/';
+const defaultAPIKey = 'test123'
 const endpoint = 'read/edits';
-const authToken = 'test123'
 
 // fetchEvents("twprice@ncsu.edu", "hw2/hw2.py").then(events => {
 //     const result = PS2.createEditList(events as any, { newLineMode: PS2.NewlineMode.AutoDetect });
@@ -57,7 +57,11 @@ rl.on("line", async line => {
             if (typeof input.SubjectID !== 'string' || typeof input.CodestateSection !== 'string') {
                 throw new Error("Input must contain 'SubjectID' and 'CodestateSection' string properties");
             }
-            events = await fetchEvents(input.SubjectID, input.CodestateSection, input.EndTimestamp) as unknown as MainTableEvent[];
+            events = await fetchEvents(
+                input.SubjectID, input.CodestateSection, input.EndTimestamp,
+                // Optional - use if provided
+                input.APIRoot, input.APIKey
+            ) as unknown as MainTableEvent[];
         } else if (Array.isArray(input)) {
             events = input as unknown as MainTableEvent[];
         } else {
@@ -78,8 +82,8 @@ rl.on("line", async line => {
     }
 });
 
-async function fetchEvents(subjectID: string, codestateSection: string, endTimestamp: string): Promise<object> {
-    let url = `${defaultRoot}${endpoint}?subject_id=${subjectID}&codestate_section=${codestateSection}`
+async function fetchEvents(subjectID: string, codestateSection: string, endTimestamp: string, apiRoot?: string, apiKey?: string): Promise<object> {
+    let url = `${apiRoot || defaultAPIRoot}${endpoint}?subject_id=${subjectID}&codestate_section=${codestateSection}`
     if (endTimestamp) {
         url += `&end_timestamp=${endTimestamp}`;
     }
@@ -87,7 +91,7 @@ async function fetchEvents(subjectID: string, codestateSection: string, endTimes
     return fetch(url, {
         method: 'GET',
         headers: {
-            'X-API-Key': `${authToken}`
+            'X-API-Key': `${apiKey || defaultAPIKey}`
         }
     })
     .then(response => {
