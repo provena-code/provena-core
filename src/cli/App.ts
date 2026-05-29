@@ -53,19 +53,19 @@ rl.on("line", async line => {
     try {
         const input = JSON.parse(line);
         let events : MainTableEvent[];
-        if (input && typeof input === 'object' && !Array.isArray(input) && 'SubjectID' in input && 'CodestateSection' in input) {
-            if (typeof input.SubjectID !== 'string' || typeof input.CodestateSection !== 'string') {
-                throw new Error("Input must contain 'SubjectID' and 'CodestateSection' string properties");
+        if (input && typeof input === 'object' && !Array.isArray(input) && 'SubjectID' in input && 'CodeStateSection' in input) {
+            if (typeof input.SubjectID !== 'string' || typeof input.CodeStateSection !== 'string') {
+                throw new Error("Input must contain 'SubjectID' and 'CodeStateSection' string properties");
             }
             events = await fetchEvents(
-                input.SubjectID, input.CodestateSection, input.EndTimestamp,
+                input.SubjectID, input.CodeStateSection, input.LastCodeStateID,
                 // Optional - use if provided
                 input.APIRoot, input.APIKey
             ) as unknown as MainTableEvent[];
         } else if (Array.isArray(input)) {
             events = input as unknown as MainTableEvent[];
         } else {
-            throw new Error("Input must be either an array of events or an object with 'SubjectID' and 'CodestateSection' properties");
+            throw new Error("Input must be either an array of events or an object with 'SubjectID' and 'CodeStateSection' properties");
         }
         const result = PS2.createEditList(events, { newLineMode: PS2.NewlineMode.AutoDetect });
         const simplifiedResult = {
@@ -82,10 +82,10 @@ rl.on("line", async line => {
     }
 });
 
-async function fetchEvents(subjectID: string, codestateSection: string, endTimestamp: string, apiRoot?: string, apiKey?: string): Promise<object> {
+async function fetchEvents(subjectID: string, codestateSection: string, lastCodeStateID: string, apiRoot?: string, apiKey?: string): Promise<object> {
     let url = `${apiRoot || defaultAPIRoot}${endpoint}?subject_id=${subjectID}&codestate_section=${codestateSection}`
-    if (endTimestamp) {
-        url += `&end_timestamp=${endTimestamp}`;
+    if (lastCodeStateID) {
+        url += `&last_codestate_id=${lastCodeStateID}`;
     }
     // console.log(`Fetching events from: ${url}`);
     return fetch(url, {
