@@ -5,7 +5,11 @@ import { EditEvent, IChangeEvent } from "./EditEvent";
 import { continueWithinTimeLimit, EditList } from "./EditList";
 
 class CopiedText {
-    constructor(public readonly text: string, public readonly match: QueryMatch | null) {}
+    constructor(
+        public readonly text: string,
+        public readonly match: QueryMatch | null,
+        public readonly originUnknown: boolean = false
+    ) {}
 }
 
 class AttributionConfig {
@@ -93,6 +97,11 @@ export class EditListBuilder {
         }
 
         if (edit.text === this.lastCopiedText) {
+            if (this.copiedText?.originUnknown) {
+                // If the copied text matches but we don't know where it came from,
+                // we should mark it that way instead of assuming it's external.
+                return Author.Unknown;
+            }
             return Author.ExternalPaste;
         }
 
@@ -296,7 +305,7 @@ export class EditListBuilder {
             return true;
         }
         let match: QueryMatch | null = null;
-        if (sourceLocation) {
+        if (sourceLocation !== undefined) {
             const textAtLocation = this.editList.toPlainText().substring(sourceLocation, sourceLocation + copiedText.length);
             if (textAtLocation !== copiedText) {
                 match = this.matchText(copiedText, true);
@@ -306,13 +315,17 @@ export class EditListBuilder {
                 // call with this arg
                 log_fn.call(this, "Copied text does not match document text at SourceLocation", sourceLocation, copiedText, 'vs', textAtLocation);
             }
-            if (match == null) {
-                match = this.editList.getMatchAtIndex(sourceLocation, copiedText.length);
-            }
+            // If we can't find a match at the source location or elsewhere in the text,
+            // we shouldn't try to fake it the match based on the source location.
+            // We could look for a partial match, but I think it's better to just say we don't know.
         } else {
             match = this.matchText(copiedText, true);
         }
-        this.copiedText = new CopiedText(copiedText, match);
+        const originUnknown = !match && sourceLocation !== undefined;
+        if (originUnknown) {
+            console.log("Could not find match for copied text. Marking origin as unknown.", copiedText);
+        }
+        this.copiedText = new CopiedText(copiedText, match, originUnknown);
         return match !== null;
     }
 
