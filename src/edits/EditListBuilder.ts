@@ -322,9 +322,6 @@ export class EditListBuilder {
             match = this.matchText(copiedText, true);
         }
         const originUnknown = !match && sourceLocation !== undefined;
-        if (originUnknown) {
-            console.log("Could not find match for copied text. Marking origin as unknown.", copiedText);
-        }
         this.copiedText = new CopiedText(copiedText, match, originUnknown);
         return match !== null;
     }

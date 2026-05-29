@@ -162,10 +162,12 @@ export namespace PS2 {
         public async addEventsAsync(events: MainTableEvent[], yielder: () => Promise<void>) {
             this.detectNeedForLineFeedIfNeeded(events);
             const eventsWithChildren = this.extractEventsWithChildren(events);
-            let i = 0;
-            for (const { event, childEvents } of eventsWithChildren) {
-                this.addEvent(event, childEvents);
-                if (i++ % 100 === 0) {
+            let tick = 0;
+            for (let i = 0; i < eventsWithChildren.length;) {
+                const event = eventsWithChildren[i];
+                const nextEvent = eventsWithChildren[i + 1];
+                i += this.addEventAndPossiblyNextAndSwap(event, nextEvent);
+                if (tick++ % 100 === 0) {
                     await yielder();
                 }
             }
@@ -174,9 +176,70 @@ export namespace PS2 {
         public addEvents(events: MainTableEvent[]) {
             this.detectNeedForLineFeedIfNeeded(events);
             const eventsWithChildren = this.extractEventsWithChildren(events);
-            eventsWithChildren.forEach(({ event, childEvents }) => {
-                this.addEvent(event, childEvents);
-            });
+            for (let i = 0; i < eventsWithChildren.length;) {
+                const event = eventsWithChildren[i];
+                const nextEvent = eventsWithChildren[i + 1];
+                i += this.addEventAndPossiblyNextAndSwap(event, nextEvent);
+            }
+        }
+
+        private addEventAndPossiblyNextAndSwap(a: EventWithChildren, b?: EventWithChildren) : number {
+            if (this.shouldSwap(a, b)) {
+                this.addEvent(b!.event, b!.childEvents);
+                this.addEvent(a.event, a.childEvents);
+                return 2; // We added both events
+            }
+            this.addEvent(a.event, a.childEvents);
+            return 1; // We added just one event
+        }
+
+        private shouldSwap(a: EventWithChildren, b?: EventWithChildren): boolean {
+            if (!b) {
+                return false;
+            }
+            const { event: eventA } = a;
+            const { event: eventB, childEvents: childEventsB } = b;
+            if (!eventA.Code || !isFileEditEvent(eventB) || !eventA.ClientTimestamp || !eventB.ClientTimestamp) {
+                return false;
+            }
+
+            const timeA = new Date(eventA.ClientTimestamp).getTime();
+            const timeB = new Date(eventB.ClientTimestamp).getTime();
+            const timeDiff = Math.abs(timeA - timeB);
+
+            // If the events are more a small delta apart, we can be reasonably sure about their order
+            // TODO: No magical constants!
+            if (timeDiff > 500) {
+                return false;
+            }
+
+            let targetCode = eventA.Code;
+            if (this.shouldAddLineFeed) {
+                targetCode = targetCode.replace(/\n/g, '\r\n');
+            }
+
+            // If the save-like event matches the current text, no problem
+            let currentText = this.editList.toPlainText();
+            if (currentText === targetCode) {
+                return false;
+            }
+
+            const allEditsB = [eventB, ...childEventsB.filter(isFileEditEvent)];
+
+            // If the edits in B would produce the text in A, then we should swap them
+            const simulatedText = allEditsB.reduce((text, editEvent) => {
+                const changeEvent = this.getChangeEvent(editEvent);
+                return text.slice(0, changeEvent.rangeOffset) + changeEvent.text + text.slice(changeEvent.rangeOffset + changeEvent.rangeLength);
+            }, currentText);
+
+            const textMatches = simulatedText === targetCode;
+            if (textMatches) {
+                this.editList.trace(`Swapping events to avoid text conflicts.`,
+                    eventA,
+                    eventB
+                );
+            }
+            return textMatches;
         }
 
         // Private because we might have multiple events with the same
