@@ -1,4 +1,4 @@
-import { diffChars } from "diff";
+import { Diff, diffChars } from "diff";
 import { Author } from "../shared/Author";
 import { QueryMatchPart, QueryMatch, Span } from "../shared/edit-data";
 import { EditEvent, IChangeEvent } from "./EditEvent";
@@ -37,6 +37,16 @@ export enum DocumentStatus {
     Synced,
     Modified,
     Irreconcilable,
+}
+
+class CodeDiff extends Diff<string> {
+  tokenize(value: string) {
+    return value.split(/([A-Za-z0-9]+)|([^A-Za-z0-9])/);
+  }
+
+  join(tokens: string[]) {
+    return tokens.join('');
+  }
 }
 
 export class EditListBuilder {
@@ -123,7 +133,10 @@ export class EditListBuilder {
         //     return DocumentStatus.Modified;
         // }
 
+        // TODO: It would be nice ot diff keeping word in tact, but this would require a rewrite
+        // and some major testing...
         const parts = diffChars(currentText, documentText);
+        // const parts = new CodeDiff().diff(currentText, documentText);
         const keptLengths = parts.filter(p => !p.added && !p.removed).map(p => p.value.length);
         const totalKeptChars = keptLengths.reduce((a, b) => a + b, 0);
         const overlapRatio = totalKeptChars / Math.max(currentText.length, documentText.length);
