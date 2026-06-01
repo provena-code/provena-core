@@ -23,6 +23,7 @@ export class EditList implements Devaluable {
     private head = createHeadNode();
 
     trace: (...args: any[]) => void = (..._args: any[]) => { };
+    logWarning: (...args: any[]) => void = (..._args: any[]) => { console.warn(..._args); };
     logError: (...args: any[]) => void = (..._args: any[]) => { console.error(..._args); };
 
     toPOJO() {
@@ -30,6 +31,7 @@ export class EditList implements Devaluable {
             ...this,
             trace: undefined,
             logError: undefined,
+            logWarning: undefined,
         }
     }
 

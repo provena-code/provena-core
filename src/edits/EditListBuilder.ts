@@ -307,13 +307,14 @@ export class EditListBuilder {
         let match: QueryMatch | null = null;
         if (sourceLocation !== undefined) {
             const textAtLocation = this.editList.toPlainText().substring(sourceLocation, sourceLocation + copiedText.length);
-            if (textAtLocation !== copiedText) {
+            if (textAtLocation === copiedText) {
+                match = this.editList.getMatchAtIndex(sourceLocation, copiedText.length);
+            } else {
                 match = this.matchText(copiedText, true);
                 // TODO: I'm not sure if it should be an error either way; can't always fix it...
                 // Only raise this to the level of an error if we can't correct it with a local match
-                const log_fn = match ? console.warn : this.logError;
-                // call with this arg
-                log_fn.call(this, "Copied text does not match document text at SourceLocation", sourceLocation, copiedText, 'vs', textAtLocation);
+                const logFn = match ? this.editList.logWarning : this.logError;
+                logFn.call(this, "Copied text does not match document text at SourceLocation", sourceLocation, copiedText, 'vs', textAtLocation);
             }
             // If we can't find a match at the source location or elsewhere in the text,
             // we shouldn't try to fake it the match based on the source location.

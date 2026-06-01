@@ -184,6 +184,7 @@ export namespace PS2 {
         }
 
         private addEventAndPossiblyNextAndSwap(a: EventWithChildren, b?: EventWithChildren) : number {
+            this.fixCopyEventWithEdit(a, b);
             if (this.shouldSwap(a, b)) {
                 this.addEvent(b!.event, b!.childEvents);
                 this.addEvent(a.event, a.childEvents);
@@ -241,6 +242,33 @@ export namespace PS2 {
             }
             return textMatches;
         }
+
+        private fixCopyEventWithEdit(a: EventWithChildren, b?: EventWithChildren) {
+            const aEvent = a.event;
+
+            // Sometimes we get a copy with a false SourceLocation that was caused by
+            // a bug in the logger. If the SourceLocation matches a subsequent edit/paste event,
+            // and the text matches as well, we should remove the SourceLocation.
+            if (!isFileCopyTextEvent(aEvent) || !aEvent.SourceLocation || !b || !isFileEditEvent(b.event)) {
+                return;
+            }
+
+            const sourceLocation = parseInt(aEvent.SourceLocation);
+
+            const allEventsB = [b.event, ...b.childEvents.filter(isFileEditEvent)];
+
+            const matchingEdit = allEventsB.find(editEvent => {
+                const changeEvent = this.getChangeEvent(editEvent);
+                return changeEvent.rangeOffset === sourceLocation &&
+                    changeEvent.text === aEvent.CopiedText;
+            });
+
+            if (matchingEdit) {
+                this.editList.logWarning(`Removing false SourceLocation from File.CopyText event`, aEvent, allEventsB);
+                delete aEvent.SourceLocation;
+            }
+        }
+
 
         // Private because we might have multiple events with the same
         // parent, so those need to be processed together
