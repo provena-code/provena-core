@@ -313,13 +313,20 @@ export namespace PS2 {
                 if (this.shouldAddLineFeed) {
                     code = code.replace(/\n/g, '\r\n');
                 }
+                let firstFrame = false;
                 if (builder.editList.isEmpty()) {
                     builder.editList.setInitialText(code, time);
+                    firstFrame = true;
                 }
 
                 const status = builder.verifyDocumentText(code, time, true);
                 const isDiscontinuity = status !== DocumentStatus.Synced;
-                this.recordHistoryFrame([], isDiscontinuity);
+
+                // The text is only changed if there's a discontinuity, and
+                // we don't really need a frame if the file wasn't actually changed.
+                if (firstFrame || isDiscontinuity) {
+                    this.recordHistoryFrame([], isDiscontinuity);
+                }
                 return;
             }
 
