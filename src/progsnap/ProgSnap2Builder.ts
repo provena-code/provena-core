@@ -1,5 +1,5 @@
 
-import { EditList, EditListBuilder, EditRange, IChangeEvent } from "../index";
+import { DocumentStatus, EditList, EditListBuilder, EditRange, IChangeEvent } from "../index";
 import { FileEditEvent, isFileCopyTextEvent, isFileEditEvent, MainTableEvent } from "./PS2EventTypes";
 
 export namespace PS2 {
@@ -21,6 +21,7 @@ export namespace PS2 {
         wasInsertion: boolean;
         wasDeletion: boolean;
         currentClipboard: string;
+        hadDiscontinuity: boolean;
     }
 
     export type BuilderOptions = {
@@ -317,7 +318,8 @@ export namespace PS2 {
                 }
 
                 const status = builder.verifyDocumentText(code, time, true);
-                // console.log(`Status: ${status}; Resetting text for ${event.CodeStateSection} to`, code);
+                const isDiscontinuity = status !== DocumentStatus.Synced;
+                this.recordHistoryFrame([], isDiscontinuity);
                 return;
             }
 
@@ -370,6 +372,10 @@ export namespace PS2 {
                 isUndoOrRedo: isUndoOrRedo,
             });
 
+            this.recordHistoryFrame(changeEvents);
+        }
+
+        private recordHistoryFrame(changeEvents: IChangeEvent[], didTextJump = false) {
             if (!this.addHistory) {
                 return;
             }
@@ -377,6 +383,8 @@ export namespace PS2 {
             // Get just the errors for this frame
             const errors = this.errors.slice(this.lastRecordedErrorLength);
             this.lastRecordedErrorLength = this.errors.length;
+
+            const builder = this.editListBuilder;
 
             const eventIDs = this.unrecordedEvents.map(e => e.EventID || '');
             this.unrecordedEvents.length = 0; // Clear the unrecorded events
@@ -389,6 +397,7 @@ export namespace PS2 {
                 isInternallyConsistent: builder.editList.isInternallyConsistent(),
                 errors: errors,
                 currentClipboard: this.currentClipboard,
+                hadDiscontinuity: didTextJump,
             });
         }
 
