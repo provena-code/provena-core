@@ -255,13 +255,25 @@ export namespace PS2 {
 
             const sourceLocation = parseInt(aEvent.SourceLocation);
 
+            const currentText = this.editList.toPlainText();
+            const textAtLocation = currentText.substring(sourceLocation, aEvent.CopiedText.length);
+            if (textAtLocation === aEvent.CopiedText) {
+                // If the text at the SourceLocation already matches the copied text,
+                // we can assume the SourceLocation is correct, and matches text before the edit occurred.
+                return;
+            }
+            if (currentText.includes(aEvent.CopiedText)) {
+                // If the text exists somewhere else in the document, it's possible the SourceLocation
+                // is just wrong, but this could plausible have been a local copy.
+                return;
+            }
+
             const allEventsB = [b.event, ...b.childEvents.filter(isFileEditEvent)];
 
-            const matchingEdit = allEventsB.find(editEvent => {
-                const changeEvent = this.getChangeEvent(editEvent);
-                return changeEvent.rangeOffset === sourceLocation &&
-                    changeEvent.text === aEvent.CopiedText;
-            });
+            // If the text wasn't in the document before this edit, and this edit pastes it
+            // it's almost certain that the SourceLocation was erroneously set "in the future"
+            // to the location of the paste itself and should be discarded.
+            const matchingEdit = allEventsB.find(editEvent => editEvent.InsertText === aEvent.CopiedText);
 
             if (matchingEdit) {
                 this.editList.logWarning(`Removing false SourceLocation from File.CopyText event`, aEvent, allEventsB);
