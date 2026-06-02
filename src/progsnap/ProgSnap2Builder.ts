@@ -199,6 +199,54 @@ export namespace PS2 {
             if (!b) {
                 return false;
             }
+            return this.shouldSwapSaveAndEdit(a, b) || this.shouldSwapCopyAndSave(a, b);
+        }
+
+        private shouldSwapCopyAndSave(a: EventWithChildren, b: EventWithChildren): boolean {
+            const eventA = a.event;
+            const eventB = b.event;
+            if (!isFileCopyTextEvent(eventA) || !eventA.SourceLocation || !eventA.CopiedText) {
+                return false;
+            }
+            const currentCode = this.editList.toPlainText();
+            const copiedText = eventA.CopiedText || '';
+            const sourceLocation = parseInt(eventA.SourceLocation);
+            if (currentCode.substring(sourceLocation, sourceLocation + copiedText.length) === copiedText) {
+                // Text already matches; no need to swap
+                return false;
+            }
+
+            if (eventB.Code) {
+                const newCode = eventB.Code;
+                // If the text matches after the new code is applied (presumably when a discontinuity occurred)
+                // then we should swap
+                if (newCode.substring(sourceLocation, sourceLocation + copiedText.length) === copiedText) {
+                    return true;
+                }
+
+                // If it's not an exact match at the source location (i.e. due to discontinuity)
+                // but still does only appear in the new text, it might make more sense to swap anyway,
+                // but remove the no-longer-accurate SourceLocation.
+                if (newCode.includes(copiedText) && !currentCode.includes(copiedText)) {
+                    this.editList.logWarning(`Swapping File.CopyText and File.Save events to avoid text conflicts, and removing SourceLocation from CopyText event`, eventA, eventB);
+                    delete eventA.SourceLocation;
+                    return true;
+                }
+            }
+
+            // If we already have the code somewhere, don't check edits
+            if (currentCode.includes(copiedText) || !isFileEditEvent(eventB)) {
+                return false;
+            }
+
+            // If we create the copied text after the edits, swap
+            const simulatedText = this.simulateEdits(currentCode, b);
+            return simulatedText.includes(copiedText);
+        }
+
+        // Sometimes an edit event is delayed (e.g. due to waiting on clipboard) and
+        // happens after a save event, when it should really have occurred before.
+        private shouldSwapSaveAndEdit(a: EventWithChildren, b: EventWithChildren): boolean {
             const { event: eventA } = a;
             const { event: eventB, childEvents: childEventsB } = b;
             if (!eventA.Code || !isFileEditEvent(eventB) || !eventA.ClientTimestamp || !eventB.ClientTimestamp) {
@@ -226,13 +274,7 @@ export namespace PS2 {
                 return false;
             }
 
-            const allEditsB = [eventB, ...childEventsB.filter(isFileEditEvent)];
-
-            // If the edits in B would produce the text in A, then we should swap them
-            const simulatedText = allEditsB.reduce((text, editEvent) => {
-                const changeEvent = this.getChangeEvent(editEvent);
-                return text.slice(0, changeEvent.rangeOffset) + changeEvent.text + text.slice(changeEvent.rangeOffset + changeEvent.rangeLength);
-            }, currentText);
+            const simulatedText = this.simulateEdits(currentText, b);
 
             const textMatches = simulatedText === targetCode;
             if (textMatches) {
@@ -242,6 +284,17 @@ export namespace PS2 {
                 );
             }
             return textMatches;
+        }
+
+        private simulateEdits(currentText: string, edits: EventWithChildren): string {
+            const allEditsB = [edits.event, ...edits.childEvents].filter(isFileEditEvent);
+
+            // If the edits in B would produce the text in A, then we should swap them
+            const simulatedText = allEditsB.reduce((text, editEvent) => {
+                const changeEvent = this.getChangeEvent(editEvent);
+                return text.slice(0, changeEvent.rangeOffset) + changeEvent.text + text.slice(changeEvent.rangeOffset + changeEvent.rangeLength);
+            }, currentText);
+            return simulatedText;
         }
 
         private fixCopyEventWithEdit(a: EventWithChildren, b?: EventWithChildren) {
