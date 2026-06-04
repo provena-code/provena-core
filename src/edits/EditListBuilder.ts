@@ -149,6 +149,7 @@ export class EditListBuilder {
         if (!update) {
             return isReconcilable ? DocumentStatus.Modified : DocumentStatus.Irreconcilable;
         }
+        this.editList.resetUndoRedoHistory();
 
         if (!isReconcilable)
         {

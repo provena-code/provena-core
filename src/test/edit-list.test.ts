@@ -347,5 +347,26 @@ describe('Edit List', () => {
     expect(editList.getAuthors(new Span(13, 17), false)).toEqual(new Set(['a1']));
   });
 
+  it('should choose the right node to insert on undo/redo under ambiguity', () => {
+    const texts = [
+      { text: 'a', isUndoRedo: false, author: 'a1' },
+      { text: 'abcd', isUndoRedo: false, author: 'a1' },
+      { text: 'a', isUndoRedo: false, author: 'a1' },
+      { text: '', isUndoRedo: false, author: 'a1' },
+      { text: 'a', isUndoRedo: false, author: 'a2' },
+      { text: 'ab', isUndoRedo: false, author: 'a2' },
+      { text: 'a', isUndoRedo: false, author: 'a2' },
+      { text: '', isUndoRedo: false, author: 'a2' },
+      { text: 'a', isUndoRedo: true, author: 'unknown' },
+      { text: 'ab', isUndoRedo: true, author: 'unknown' },
+      { text: 'a', isUndoRedo: true, author: 'unknown' },
+      { text: '', isUndoRedo: true, author: 'unknown' },
+      { text: 'a', isUndoRedo: true, author: 'unknown' },
+      { text: 'abcd', isUndoRedo: true, author: 'unknown' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+  });
+
 
 });

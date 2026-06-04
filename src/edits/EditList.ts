@@ -12,6 +12,12 @@ export function continueWithinTimeLimit(ms: number): () => boolean {
     return () => Date.now() - startTime < ms;
 }
 
+export enum EditType {
+    Normal,
+    Undo,
+    Redo
+}
+
 /**
  * Manages a history of edits with associated metadata from a code file.
  * All edits are non-overlapping and sorted by their start position.
@@ -21,6 +27,13 @@ export function continueWithinTimeLimit(ms: number): () => boolean {
 export class EditList implements Devaluable {
     private edits = [] as EditNode[];
     private head = createHeadNode();
+
+    // Keep two lists since insertions and deletions can both be
+    // undone/redone to create insertions that should reuse nodes
+    // Use two lists instead of a datastructure to reduce memory/GC
+    private insertHistory = [] as (EditNode | undefined)[];
+    private deleteHistory = [] as (EditNode | undefined)[];
+    private editHistoryIndex = -1;
 
     trace: (...args: any[]) => void = (..._args: any[]) => { };
     logWarning: (...args: any[]) => void = (..._args: any[]) => { console.warn(..._args); };
@@ -260,6 +273,11 @@ export class EditList implements Devaluable {
         this.head = createHeadNode();
     }
 
+    public resetUndoRedoHistory() {
+        this.insertHistory = [];
+        this.editHistoryIndex = -1;
+    }
+
     setInitialText(text: string, time: number) {
         if (this.edits.length > 0) {
             throw new Error('Initial text can only be set on an empty EditList');
@@ -270,13 +288,7 @@ export class EditList implements Devaluable {
         this.head.addChild(child);
     }
 
-    public revertToHistoricalMatch(match: QueryMatch, time: number) {
-        this.edits = [];
-        // TODO: Likely have to do something with updating text and ranges for partial matches!!
-        this.insertQueryMatch(0, match, time, 0);
-    }
-
-    addEdit(changeEvent: IChangeEvent, metadata: Metadata, isUndoOrRedo = false, pasteMatch: QueryMatch | null = null) {
+    addEdit(changeEvent: IChangeEvent, metadata: Metadata, editType = EditType.Normal, pasteMatch: QueryMatch | null = null) {
         if (pasteMatch?.length === 0) {
             this.logError('Internal error: paste match is empty', pasteMatch);
         }
@@ -321,6 +333,9 @@ export class EditList implements Devaluable {
             }
         }
 
+        let deleteHead = undefined;
+        let insertHead = undefined;
+
         // Remove contained edits, which are now superseded by this edit
         if (containedEdits.length > 0) {
             let before = this.findLastEditBefore(replacedSpan.start);
@@ -343,7 +358,8 @@ export class EditList implements Devaluable {
                 throw new Error('Internal error: mismatch in contained edits');
             }
             this.trace('Removing edits:\n', containedEdits.map(e => e.text + `${e.range}`).join(', '));
-            this.edits.splice(before + 1, expectedLength);
+            const deleted = this.edits.splice(before + 1, expectedLength);
+            deleteHead = deleted[0];
         }
 
         // We don't have to worry about shifting edits that overlap with
@@ -356,11 +372,12 @@ export class EditList implements Devaluable {
             const index = this.findLastEditBefore(replacedSpan.start) + 1;
             const priorEdit = this.edits[index - 1];
             const subsequentEdit = this.edits[index];
-            let matchPath: QueryMatch | null = this.findUndoOrRedoMatch(isUndoOrRedo, index, subsequentEdit, text);
+            let matchPath: QueryMatch | null = this.findUndoOrRedoMatch(editType, index, subsequentEdit, text);
             if (matchPath) {
                 // If we've created this text at this position before, just reconnect to that edit
                 this.trace('Reusing existing edit', matchPath[0]);
-                this.insertQueryMatch(replacedSpan.start, matchPath, metadata.endTime, index);
+                const inserted = this.insertQueryMatch(replacedSpan.start, matchPath, metadata.endTime, index);
+                insertHead = inserted[0];
 
             } else if (pasteMatch && pasteMatch.length > 0) {
                 this.trace('Using paste match', pasteMatch);
@@ -391,7 +408,9 @@ export class EditList implements Devaluable {
                     }
                     nodes[nodes.length - 1].addChild(subsequentEdit);
                 }
-                this.edits.splice(index, 0, ...nodes);
+                // Only need to insert the head of the chain into the history
+                this.spliceEdits(index, ...nodes);
+                insertHead = nodes[0];
             } else if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start &&
                 // We only append if this doesn't delete text and it inserts in an existing gap
                 replacedSpan.start === replacedSpan.end && overlappingEdits.length === 0
@@ -409,6 +428,8 @@ export class EditList implements Devaluable {
                     }
                 }
 
+                insertHead = priorEdit;
+
                 // No need to connect to subsequent edit; split would have already done so
             } else {
                 // Otherwise, insert a new edit
@@ -416,7 +437,8 @@ export class EditList implements Devaluable {
                 const editRange = new Span(replacedSpan.start, replacedSpan.start + text.length);
                 const edit = new EditNode(editRange, text, metadata);
                 this.trace('Inserting at', index);
-                this.edits.splice(index, 0, edit);
+                this.spliceEdits(index, edit);
+                insertHead = edit;
 
                 if (priorEdit && priorEdit.range.end === edit.range.start) {
                     // If this edit is immediately after an edit, connect them
@@ -429,6 +451,14 @@ export class EditList implements Devaluable {
                     edit.addChild(subsequentEdit);
                 }
             }
+        }
+
+        if (editType === EditType.Normal) {
+            this.pushHistory(insertHead, deleteHead);
+        } else if (editType === EditType.Undo) {
+            this.editHistoryIndex--;
+        } else {
+            this.editHistoryIndex++;
         }
 
         // this.defragment();
@@ -445,7 +475,17 @@ export class EditList implements Devaluable {
         this.trace('Final edits:', this.toStringWithRanges());
     }
 
-    private insertQueryMatch(rangeStart: number, matchPath: QueryMatch, updateTime: number, insertionIndex: number) {
+    private spliceEdits(index: number, ...nodes: EditNode[]): void {
+        this.edits.splice(index, 0, ...nodes);
+    }
+
+    private pushHistory(insertHead?: EditNode, deleteHead?: EditNode) {
+        this.insertHistory.push(insertHead);
+        this.deleteHistory.push(deleteHead);
+        this.editHistoryIndex++;
+    }
+
+    private insertQueryMatch(rangeStart: number, matchPath: QueryMatch, updateTime: number, insertionIndex: number): EditNode[] {
         // These nodes are already in the graph, so just update the edits list
         const nodes = matchPath.map(m => m.node);
         nodes.forEach(n => {
@@ -453,15 +493,20 @@ export class EditList implements Devaluable {
             n.range = new Span(rangeStart, rangeStart + n.text.length);
             rangeStart += n.text.length;
         });
-        this.edits.splice(insertionIndex, 0, ...nodes);
+        return nodes;
     }
 
-    private findUndoOrRedoMatch(isUndoOrRedo: boolean, index: number, subsequentEdit: EditNode, text: string) {
-        if (!isUndoOrRedo) {
+    private findUndoOrRedoMatch(editType: EditType, index: number, subsequentEdit: EditNode, text: string) {
+        if (editType === EditType.Normal) {
             return null;
         }
 
         const priorEdit = index === 0 ? this.head : this.edits[index - 1];
+
+        // TODO: Find the right edit to look for in the edit history, verify it,
+        // raise warnings if it doesn't connect to the subsequentEdit, think about
+        // how broken multi-inserts will affect this, and then search directly from
+        // the history node to ensure the correct match.
 
         let matchPath;
         for (const edge of priorEdit.getOutEdges()) {
