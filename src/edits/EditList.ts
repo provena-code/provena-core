@@ -504,7 +504,7 @@ export class EditList implements Devaluable {
         return nodes;
     }
 
-    private findUndoOrRedoMatchInHistory(editType: EditType.Redo | EditType.Undo, index: number, priorEdit: EditNode, subsequentEdit: EditNode, text: string) {
+    private findUndoOrRedoMatchInHistory(editType: EditType.Redo | EditType.Undo, index: number, priorEdit: EditNode, subsequentEdit: EditNode | undefined, text: string) {
         let candidateHead: EditNode | undefined;
         if (editType === EditType.Undo) {
             candidateHead = this.deleteHistory[this.editHistoryIndex];
@@ -539,37 +539,37 @@ export class EditList implements Devaluable {
 
         if (!result) {
             this.logError('Internal error: undo/redo match not found in history');
+            return null;
         } else if (!result[0].node.getParents().includes(priorEdit)) {
             this.logError('Internal error: undo/redo match found in history, but does not connect to prior edit', result[0].node, priorEdit);
+            return null;
         }
 
         return result;
     }
 
-    private findUndoOrRedoMatch(editType: EditType, index: number, subsequentEdit: EditNode, text: string) {
+    private findUndoOrRedoMatch(editType: EditType, index: number, subsequentEdit: EditNode | undefined, text: string) {
         if (editType === EditType.Edit) {
             return null;
         }
 
         const priorEdit = index === 0 ? this.head : this.edits[index - 1];
-        const result = this.findUndoOrRedoMatchInHistory(editType, index, priorEdit, subsequentEdit, text);
-        if (result) {
-            return result;
-        }
+        let matchPath = this.findUndoOrRedoMatchInHistory(editType, index, priorEdit, subsequentEdit, text);
 
         // If we cannot find a match in the history, we can still search the graph as a fallback
         // though probably at this point a discontinuity has already messed things up
-        let matchPath;
         for (const edge of priorEdit.getOutEdges()) {
+            // Skip if we already found a match in history or earlier in this loop
+            if (matchPath) {
+                break;
+            }
+
             // Only look for children that come from the very end of this edit
             if (!edge.textIndices.includes(priorEdit.text.length)) {
                 continue;
             }
 
             matchPath = this.searchForMatch(edge.child, index, text, subsequentEdit);
-            if (matchPath) {
-                break;
-            }
         }
         if (!matchPath) {
             // This line can be useful for debugging this error
@@ -583,15 +583,14 @@ export class EditList implements Devaluable {
         for (const match of matchPath) {
             if (match.range.start !== 0 || match.range.end !== match.node.text.length) {
                 this.logError('Internal error: undo/redo match is not a full edit');
+                // TODO: Split nodes
             }
         }
-
-        // Split nodes
 
         return matchPath;
     }
 
-    private searchForMatch(node: EditNode, insertIndex: number, text: string, subsequentEdit: EditNode): QueryMatch | null {
+    private searchForMatch(node: EditNode, insertIndex: number, text: string, subsequentEdit?: EditNode): QueryMatch | null {
         // Recreate the ignoreMap each time, so it doesn't accumulate
         const ignoreMap: Map<EditNode, number[]> = new Map();
         for (let i = insertIndex; i < this.edits.length; i++) {
