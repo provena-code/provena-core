@@ -199,9 +199,10 @@ describe('Edit List', () => {
       { text: 'Hello World', editType: EditType.Edit, author: 'a1' },
       { text: 'Hello this cruel World', editType: EditType.Edit, author: 'a2' },
       { text: 'Hello this silly World', editType: EditType.Edit, author: 'a3' },
-      { text: 'Hello this cruel World', editType: EditType.Undo, author: 'a1' },
-      { text: 'Hello World', editType: EditType.Undo, author: 'a1' },
-      { text: 'Hello this silly World', editType: EditType.Redo, author: 'a1' },
+      { text: 'Hello this cruel World', editType: EditType.Undo, author: 'unknown' },
+      { text: 'Hello World', editType: EditType.Undo, author: 'unknown' },
+      { text: 'Hello this cruel World', editType: EditType.Redo, author: 'unknown' },
+      { text: 'Hello this silly World', editType: EditType.Redo, author: 'unknown' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -335,8 +336,10 @@ describe('Edit List', () => {
     const texts = [
       { text: 'Hello World', editType: EditType.Edit, author: 'a1' },
       { text: 'Hello to the World', editType: EditType.Edit, author: 'a2' },
-      { text: '', editType: EditType.Undo, author: 'a2' },
-      { text: 'Hello to the World', editType: EditType.Redo, author: 'a3' },
+      { text: 'Hello World', editType: EditType.Undo, author: 'unknown' },
+      { text: '', editType: EditType.Undo, author: 'unknown' },
+      { text: 'Hello World', editType: EditType.Redo, author: 'unknown' },
+      { text: 'Hello to the World', editType: EditType.Redo, author: 'unknown' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -368,5 +371,25 @@ describe('Edit List', () => {
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
   });
 
+  it('should handle branching ambiguity in undo/redo', () => {
+    const texts = [
+      { text: 'abc', editType: EditType.Edit, author: 'a1' },
+      { text: 'abcdef', editType: EditType.Edit, author: 'a1' },
+      { text: 'abcdefhij', editType: EditType.Edit, author: 'a1' },
+      { text: 'abc', editType: EditType.Edit, author: 'a1' },
+      { text: 'abcdzz', editType: EditType.Edit, author: 'a1' },
+      { text: 'abc', editType: EditType.Undo, author: 'unknown' },
+      { text: 'abcdefhij', editType: EditType.Undo, author: 'unknown' },
+      { text: 'abcdef', editType: EditType.Undo, author: 'unknown' },
+      { text: 'abc', editType: EditType.Undo, author: 'unknown' },
+      { text: 'abcdef', editType: EditType.Redo, author: 'unknown' },
+      { text: 'abcdefhij', editType: EditType.Redo, author: 'unknown' },
+      { text: 'abc', editType: EditType.Redo, author: 'unknown' },
+      { text: 'abcdzz', editType: EditType.Redo, author: 'unknown' },
+      { text: 'abc', editType: EditType.Redo, author: 'unknown' },
+    ] as EditDef[];
+    const editList = createEditList(texts, false);
+    expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
+  });
 
 });

@@ -366,6 +366,7 @@ export class EditList implements Devaluable {
             const index = this.findLastEditBefore(replacedSpan.start) + 1;
             const priorEdit = this.edits[index - 1];
             const subsequentEdit = this.edits[index];
+            this.trace('Subsequent edit:', subsequentEdit);
             let matchPath: QueryMatch | null = this.findUndoOrRedoMatch(editType, index, subsequentEdit, text);
             if (matchPath) {
                 // If we've created this text at this position before, just reconnect to that edit
@@ -407,7 +408,9 @@ export class EditList implements Devaluable {
                 insertHead = nodes[0];
             } else if (priorEdit && priorEdit.metadata.author === metadata.author && priorEdit.range.end === replacedSpan.start &&
                 // We only append if this doesn't delete text and it inserts in an existing gap
-                replacedSpan.start === replacedSpan.end && overlappingEdits.length === 0
+                replacedSpan.start === replacedSpan.end && overlappingEdits.length === 0 &&
+                // And only if the prior edit hasn't already been split here
+                priorEdit.getOutEdges().length <= (subsequentEdit ? 1 : 0)
             ) {
                 // If this edit is immediately after an edit by the same author, merge them
                 this.trace('Merging with prior edit', priorEdit, `${priorEdit.text} -> "${priorEdit.text + text}"`);
@@ -479,6 +482,16 @@ export class EditList implements Devaluable {
         this.editHistoryIndex++;
     }
 
+    private updateEditInHistory(oldEdit: EditNode, newEdit: EditNode) {
+        for (let list of [this.deleteHistory, this.insertHistory]) {
+            for (let i = 0; i < list.length; i++) {
+                if (list[i] === oldEdit) {
+                    list[i] = newEdit;
+                }
+            }
+        }
+    }
+
     private insertQueryMatch(rangeStart: number, matchPath: QueryMatch, updateTime: number, insertionIndex: number): EditNode[] {
         // These nodes are already in the graph, so just update the edits list
         const nodes = matchPath.map(m => m.node);
@@ -491,33 +504,69 @@ export class EditList implements Devaluable {
         return nodes;
     }
 
+    private findUndoOrRedoMatchInHistory(editType: EditType.Redo | EditType.Undo, index: number, priorEdit: EditNode, subsequentEdit: EditNode, text: string) {
+        let candidateHead: EditNode | undefined;
+        if (editType === EditType.Undo) {
+            candidateHead = this.deleteHistory[this.editHistoryIndex];
+        } else {
+            candidateHead = this.insertHistory[this.editHistoryIndex + 1];
+        }
+        if (!candidateHead) {
+            this.logError('Internal error: no candidate edit found in history for undo/redo operation');
+            return null;
+        }
+
+        this.trace(`Finding ${editType} match in history`, {
+            candidateHead,
+            priorEdit,
+            subsequentEdit,
+            text
+        });
+
+        let nodeToSearch = candidateHead;
+        let result: QueryMatch | null = null;
+        // We're going to search at this exact index for the relevant text, so
+        // that won't start the search at children. Since the candidate head
+        // may be a direct ancestor, we search only the first children to see
+        // if we can find a match.
+        while (nodeToSearch) {
+            result = this.searchForMatch(nodeToSearch, index, text, subsequentEdit);
+            if (result) {
+                break;
+            }
+            nodeToSearch = nodeToSearch.getOutEdges()[0]?.child;
+        }
+
+        if (!result) {
+            this.logError('Internal error: undo/redo match not found in history');
+        } else if (!result[0].node.getParents().includes(priorEdit)) {
+            this.logError('Internal error: undo/redo match found in history, but does not connect to prior edit', result[0].node, priorEdit);
+        }
+
+        return result;
+    }
+
     private findUndoOrRedoMatch(editType: EditType, index: number, subsequentEdit: EditNode, text: string) {
         if (editType === EditType.Edit) {
             return null;
         }
 
         const priorEdit = index === 0 ? this.head : this.edits[index - 1];
+        const result = this.findUndoOrRedoMatchInHistory(editType, index, priorEdit, subsequentEdit, text);
+        if (result) {
+            return result;
+        }
 
-        // TODO: Find the right edit to look for in the edit history, verify it,
-        // raise warnings if it doesn't connect to the subsequentEdit, think about
-        // how broken multi-inserts will affect this, and then search directly from
-        // the history node to ensure the correct match.
-
+        // If we cannot find a match in the history, we can still search the graph as a fallback
+        // though probably at this point a discontinuity has already messed things up
         let matchPath;
         for (const edge of priorEdit.getOutEdges()) {
-            // Recreate the ignoreMap each time, so it doesn't accumulate
-            const ignoreMap: Map<EditNode, number[]> = new Map();
-            for (let i = index; i < this.edits.length; i++) {
-                // Don't search any edits that are already active; these
-                // cannot be the target of an undo/redo operation
-                ignoreMap.set(this.edits[i], [0]);
-            }
-
             // Only look for children that come from the very end of this edit
             if (!edge.textIndices.includes(priorEdit.text.length)) {
                 continue;
             }
-            matchPath = edge.child.search({ query: text, exactIndex: true, checked: ignoreMap, subsequentEdit: subsequentEdit });
+
+            matchPath = this.searchForMatch(edge.child, index, text, subsequentEdit);
             if (matchPath) {
                 break;
             }
@@ -542,41 +591,15 @@ export class EditList implements Devaluable {
         return matchPath;
     }
 
-    // Not needed, since we append to existing edits, and we don't actually
-    // want to heal splits in the graph
-    // Could actually be useful now that we have edge indices edits, could be moreso if
-    // we also have edge indices to the child
-    private defragment() {
-        for (let i = 0; i < this.edits.length - 1; i++) {
-            const current = this.edits[i];
-            const next = this.edits[i + 1];
-            // this.trace(`Checking ${current.range} and ${next.range}`);
-            if (current.range.end === next.range.start &&
-                current.metadata.author === next.metadata.author
-            ) {
-                this.trace('Merging edits');
-                // Merge next into current
-                const mergedEdit = new EditNode(
-                    new Span(current.range.start, next.range.end),
-                    current.text + next.text,
-                    {
-                        author: current.metadata.author,
-                        startTime: Math.min(current.metadata.startTime, next.metadata.startTime),
-                        endTime: Math.max(current.metadata.endTime, next.metadata.endTime)
-                    }
-                );
-                for (const child of current.getChildren()) {
-                    if (child !== next) {
-                        mergedEdit.addChild(child);
-                    }
-                }
-                for (const child of next.getChildren()) {
-                    mergedEdit.addChild(child);
-                }
-                this.edits.splice(i, 2, mergedEdit);
-                i--; // Recheck at this index
-            }
+    private searchForMatch(node: EditNode, insertIndex: number, text: string, subsequentEdit: EditNode): QueryMatch | null {
+        // Recreate the ignoreMap each time, so it doesn't accumulate
+        const ignoreMap: Map<EditNode, number[]> = new Map();
+        for (let i = insertIndex; i < this.edits.length; i++) {
+            // Don't search any edits that are already active; these
+            // cannot be the target of an undo/redo operation
+            ignoreMap.set(this.edits[i], [0]);
         }
+        return node.search({ query: text, exactIndex: true, checked: ignoreMap, subsequentEdit: subsequentEdit });
     }
 
     private splitEdit(edit: EditNode, splitPosition: number) {
@@ -589,6 +612,7 @@ export class EditList implements Devaluable {
         if (this.head.getChildren().includes(edit)) {
             this.head.removeChild(edit);
         }
+        this.updateEditInHistory(edit, leftEdit);
         return { leftEdit, rightEdit };
     }
 

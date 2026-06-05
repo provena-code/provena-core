@@ -118,11 +118,25 @@ export class EditNode implements EditRange, Devaluable {
             edge.textIndices.push(this.text.length);
             return;
         }
-        this.outEdges.unshift({
+        // Add to the end so that the first index always represents
+        // the original subsequent edit. This is helpful for tracking
+        // undo/redo, since an multi-edit insertion that's broken up
+        // later will point to the parent in the history, and we can
+        // follow index 0 to find the subsequent edit.
+        this.outEdges.push({
             textIndices: [this.text.length],
             child
         });
         child.parents.push(this);
+    }
+
+    replaceChild(oldChild: EditNode, newChild: EditNode) {
+        const edgeIndex = this.outEdges.findIndex(edge => edge.child === oldChild);
+        if (edgeIndex === -1) {
+            throw new Error('Cannot replace child that does not exist');
+        }
+        this.outEdges[edgeIndex].child = newChild;
+        newChild.parents.push(this);
     }
 
     removeChild(child: EditNode, removeFromParents = true) {
@@ -184,7 +198,7 @@ export class EditNode implements EditRange, Devaluable {
         leftEdit.addChild(rightEdit);
 
         this.getParents().forEach(parent => {
-            parent.addChild(leftEdit);
+            parent.replaceChild(this, leftEdit);
         });
 
         this.removeConnections();

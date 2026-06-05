@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 export enum EditType {
-    Edit,
-    Undo,
-    Redo
+    Edit = 'edit',
+    Undo = 'undo',
+    Redo = 'redo'
 }
 
 // IChangeEvent schema
