@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+export enum EditType {
+    Edit,
+    Undo,
+    Redo
+}
 
 // IChangeEvent schema
 const IChangeEvent = z.object({
@@ -13,7 +18,7 @@ const IChangeEvent = z.object({
 export const EditEvent = z.object({
   time: z.number(),
   contentChanges: z.array(IChangeEvent).readonly(),
-  isUndoOrRedo: z.boolean().optional(),
+  editType: z.enum(EditType).optional(),
 });
 
 export type EditEvent = z.infer<typeof EditEvent>;

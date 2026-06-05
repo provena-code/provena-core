@@ -1,7 +1,7 @@
 import { Diff, diffChars } from "diff";
 import { Author } from "../shared/Author";
 import { QueryMatchPart, QueryMatch, Span } from "../shared/edit-data";
-import { EditEvent, IChangeEvent } from "./EditEvent";
+import { EditEvent, EditType, IChangeEvent } from "./EditEvent";
 import { continueWithinTimeLimit, EditList } from "./EditList";
 
 class CopiedText {
@@ -264,12 +264,13 @@ export class EditListBuilder {
     }
 
     public addEditEvent(event: EditEvent) {
-        const { contentChanges: edits, isUndoOrRedo = false, time } = event;
+        const { contentChanges: edits, editType = EditType.Edit, time } = event;
 
         if (edits.length === 0) {
             return;
         }
 
+        const isUndoOrRedo = editType !== EditType.Edit;
         const author = this.getAuthor(edits, isUndoOrRedo);
 
         for (const originalEdit of edits) {
@@ -300,7 +301,7 @@ export class EditListBuilder {
                 startTime: time,
                 endTime: time,
             };
-            this.editList.addEdit(edit, metadata, isUndoOrRedo, match);
+            this.editList.addEdit(edit, metadata, editType, match);
         }
 
     }

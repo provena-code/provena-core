@@ -1,7 +1,7 @@
 import { Devaluable } from '../serialization/serialization-types';
 import { Author } from '../shared/Author';
 import { copyEditRange, EditNode, EditRange, Metadata, QueryMatch, Span } from '../shared/edit-data';
-import { IChangeEvent } from './EditEvent';
+import { EditType, IChangeEvent } from './EditEvent';
 
 function createHeadNode(): EditNode {
     return new EditNode(new Span(0, 0), '', { author: Author.ExistingText, startTime: 0, endTime: 0 });
@@ -10,12 +10,6 @@ function createHeadNode(): EditNode {
 export function continueWithinTimeLimit(ms: number): () => boolean {
     const startTime = Date.now();
     return () => Date.now() - startTime < ms;
-}
-
-export enum EditType {
-    Normal,
-    Undo,
-    Redo
 }
 
 /**
@@ -288,7 +282,7 @@ export class EditList implements Devaluable {
         this.head.addChild(child);
     }
 
-    addEdit(changeEvent: IChangeEvent, metadata: Metadata, editType = EditType.Normal, pasteMatch: QueryMatch | null = null) {
+    addEdit(changeEvent: IChangeEvent, metadata: Metadata, editType = EditType.Edit, pasteMatch: QueryMatch | null = null) {
         if (pasteMatch?.length === 0) {
             this.logError('Internal error: paste match is empty', pasteMatch);
         }
@@ -453,7 +447,7 @@ export class EditList implements Devaluable {
             }
         }
 
-        if (editType === EditType.Normal) {
+        if (editType === EditType.Edit) {
             this.pushHistory(insertHead, deleteHead);
         } else if (editType === EditType.Undo) {
             this.editHistoryIndex--;
@@ -493,11 +487,12 @@ export class EditList implements Devaluable {
             n.range = new Span(rangeStart, rangeStart + n.text.length);
             rangeStart += n.text.length;
         });
+        this.spliceEdits(insertionIndex, ...nodes);
         return nodes;
     }
 
     private findUndoOrRedoMatch(editType: EditType, index: number, subsequentEdit: EditNode, text: string) {
-        if (editType === EditType.Normal) {
+        if (editType === EditType.Edit) {
             return null;
         }
 

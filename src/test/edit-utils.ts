@@ -1,5 +1,5 @@
 import { assert } from "vitest";
-import { EditEvent, IChangeEvent } from "../edits/EditEvent";
+import { EditEvent, EditType, IChangeEvent } from "../edits/EditEvent";
 import { EditList } from "../edits/EditList";
 import { EditListBuilder } from "../edits/EditListBuilder";
 import { Author } from "../shared/Author";
@@ -44,7 +44,7 @@ export function extractEdit(s0: string, s1: string): IChangeEvent {
 
 export type EditDef = {
   text: string;
-  isUndoRedo?: boolean;
+  editType?: EditType;
   author?: string;
 }
 export type EditDefInput = string | EditDef;
@@ -119,11 +119,11 @@ export function createUserEditEvents(change: IChangeEvent): EditEvent[] {
   return events;
 }
 
-export function createEditEvent(change: IChangeEvent, isUndoOrRedo: boolean = false) : EditEvent {
+export function createEditEvent(change: IChangeEvent, editType: EditType = EditType.Edit) : EditEvent {
   return {
     time: 0,
     contentChanges: [change],
-    isUndoOrRedo,
+    editType,
   };
 }
 
@@ -163,7 +163,7 @@ export function createEditList(textDefs: EditDefInput[], silently: boolean): Edi
     }
     console.log('------------------------- Adding Edit -------------------------');
     console.log(edit);
-    editList.addEdit(edit, metadata, editDef.isUndoRedo);
+    editList.addEdit(edit, metadata, editDef.editType);
   });
   return editList;
 }

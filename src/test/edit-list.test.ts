@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assert, describe, expect, it } from 'vitest';
-import { IChangeEvent } from '../edits/EditEvent';
+import { EditType, IChangeEvent } from '../edits/EditEvent';
 import { EditList } from '../edits/EditList';
 import { Author } from '../shared/Author';
 import { EditNode, Span } from '../shared/edit-data';
@@ -46,10 +46,10 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
       textHistory.push(event.documentText);
       return;
     }
-    const isUndoRedo = event.reason !== undefined;
+    const editType = event.reason === 1 ? EditType.Undo : event.reason === 2 ? EditType.Redo : EditType.Edit;
     event.contentChanges.forEach(change => {
       console.log('------------------------- Change -------------------------');
-      console.log(change, isUndoRedo ? `(undo/redo: ${event.reason})` : '');
+      console.log(change, editType !== EditType.Edit ? `(undo/redo: ${event.reason})` : '');
       const realChangeEvent = {
         rangeLength: change.rangeLength,
         rangeOffset: change.rangeOffset,
@@ -59,7 +59,7 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
         author: Author.User,
         startTime: event.time,
         endTime: event.time,
-      }, isUndoRedo);
+      }, editType);
     });
     const editText = normalizeLineEndings(editList.toPlainText());
     const documentText = normalizeLineEndings(event.documentText);
@@ -185,9 +185,9 @@ describe('Edit List', () => {
 
   it('should handle very simple undo/redo', () => {
     const texts = [
-      { text: 'abc', isUndoRedo: false, author: 'a1' },
-      { text: 'ac', isUndoRedo: false, author: 'a2' },
-      { text: 'abc', isUndoRedo: true, author: 'a2' },
+      { text: 'abc', editType: EditType.Edit, author: 'a1' },
+      { text: 'ac', editType: EditType.Edit, author: 'a2' },
+      { text: 'abc', editType: EditType.Undo, author: 'a2' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -196,12 +196,12 @@ describe('Edit List', () => {
 
   it('should handle more complex undo/redo', () => {
     const texts = [
-      { text: 'Hello World', isUndoRedo: false, author: 'a1' },
-      { text: 'Hello this cruel World', isUndoRedo: false, author: 'a2' },
-      { text: 'Hello this silly World', isUndoRedo: false, author: 'a3' },
-      { text: 'Hello this cruel World', isUndoRedo: true, author: 'a1' },
-      { text: 'Hello World', isUndoRedo: true, author: 'a1' },
-      { text: 'Hello this silly World', isUndoRedo: true, author: 'a1' },
+      { text: 'Hello World', editType: EditType.Edit, author: 'a1' },
+      { text: 'Hello this cruel World', editType: EditType.Edit, author: 'a2' },
+      { text: 'Hello this silly World', editType: EditType.Edit, author: 'a3' },
+      { text: 'Hello this cruel World', editType: EditType.Undo, author: 'a1' },
+      { text: 'Hello World', editType: EditType.Undo, author: 'a1' },
+      { text: 'Hello this silly World', editType: EditType.Redo, author: 'a1' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -213,10 +213,10 @@ describe('Edit List', () => {
 
   it('should handle undoing a deletion with multiple authors', () => {
     const texts = [
-      { text: 'One Two Four Five', isUndoRedo: false, author: 'a1' },
-      { text: 'One Two Three Four Five', isUndoRedo: false, author: 'a2' },
-      { text: 'One Five', isUndoRedo: false, author: 'a3' },
-      { text: 'One Two Three Four Five', isUndoRedo: true, author: 'a4' },
+      { text: 'One Two Four Five', editType: EditType.Edit, author: 'a1' },
+      { text: 'One Two Three Four Five', editType: EditType.Edit, author: 'a2' },
+      { text: 'One Five', editType: EditType.Edit, author: 'a3' },
+      { text: 'One Two Three Four Five', editType: EditType.Undo, author: 'a4' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -237,9 +237,9 @@ describe('Edit List', () => {
 
   it('should handle undoing a deletion of text that exists in multiple locations', () => {
     const texts = [
-      { text: 'One Two Four Two', isUndoRedo: false, author: 'a1' },
-      { text: 'One  Four Two', isUndoRedo: false, author: 'a2' },
-      { text: 'One Two Four Two', isUndoRedo: true, author: 'a3' },
+      { text: 'One Two Four Two', editType: EditType.Edit, author: 'a1' },
+      { text: 'One  Four Two', editType: EditType.Edit, author: 'a2' },
+      { text: 'One Two Four Two', editType: EditType.Undo, author: 'a3' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -255,9 +255,9 @@ describe('Edit List', () => {
 
   it('should handle undo/redo of the first character', () => {
     const texts = [
-      { text: 'Two Four Two', isUndoRedo: false, author: 'a1' },
-      { text: ' Four Two', isUndoRedo: false, author: 'a2' },
-      { text: 'Two Four Two', isUndoRedo: true, author: 'a3' },
+      { text: 'Two Four Two', editType: EditType.Edit, author: 'a1' },
+      { text: ' Four Two', editType: EditType.Edit, author: 'a2' },
+      { text: 'Two Four Two', editType: EditType.Undo, author: 'a3' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -268,11 +268,11 @@ describe('Edit List', () => {
 
   it('should not duplicate nodes or edges unnecessarily', () => {
     const texts = [
-      { text: 'World', isUndoRedo: false, author: 'a1' },
-      { text: 'HelWorld', isUndoRedo: false, author: 'a2' },
-      { text: 'Hello World', isUndoRedo: false, author: 'a2' },
-      { text: 'HelWorld', isUndoRedo: true, author: 'a3' },
-      // { text: 'Hello World', isUndoRedo: true, author: 'a3' },
+      { text: 'World', editType: EditType.Edit, author: 'a1' },
+      { text: 'HelWorld', editType: EditType.Edit, author: 'a2' },
+      { text: 'Hello World', editType: EditType.Edit, author: 'a2' },
+      { text: 'HelWorld', editType: EditType.Undo, author: 'a3' },
+      // { text: 'Hello World', editType: EditType.Redo, author: 'a3' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
 
@@ -300,12 +300,12 @@ describe('Edit List', () => {
 
   it('should handle undo/redo that split a node\'s text', () => {
     const texts = [
-      { text: 'World', isUndoRedo: false, author: 'a1' },
-      { text: 'HelWorld', isUndoRedo: false, author: 'a2' },
-      { text: 'Hello World', isUndoRedo: false, author: 'a2' },
-      { text: 'HelWorld', isUndoRedo: true, author: 'a3' },
-      { text: 'World', isUndoRedo: true, author: 'a3' },
-      { text: 'Hello World', isUndoRedo: true, author: 'a3' },
+      { text: 'World', editType: EditType.Edit, author: 'a1' },
+      { text: 'HelWorld', editType: EditType.Edit, author: 'a2' },
+      { text: 'Hello World', editType: EditType.Edit, author: 'a2' },
+      { text: 'HelWorld', editType: EditType.Undo, author: 'a3' },
+      { text: 'World', editType: EditType.Undo, author: 'a3' },
+      { text: 'Hello World', editType: EditType.Redo, author: 'a3' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -317,10 +317,10 @@ describe('Edit List', () => {
 
     it('should handle simple undo/redo', () => {
     const texts = [
-      { text: '#Hello\n\nWorld', isUndoRedo: false, author: 'a1' },
-      { text: '#Hello\n#\nWorld', isUndoRedo: false, author: 'a2' },
-      { text: '#Hello\n\nWorld', isUndoRedo: true, author: 'a3' },
-      { text: '#Hello\n#\nWorld', isUndoRedo: true, author: 'a3' },
+      { text: '#Hello\n\nWorld', editType: EditType.Edit, author: 'a1' },
+      { text: '#Hello\n#\nWorld', editType: EditType.Edit, author: 'a2' },
+      { text: '#Hello\n\nWorld', editType: EditType.Undo, author: 'a3' },
+      { text: '#Hello\n#\nWorld', editType: EditType.Redo, author: 'a3' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -333,10 +333,10 @@ describe('Edit List', () => {
 
   it('should handle undo/redo to empty', () => {
     const texts = [
-      { text: 'Hello World', isUndoRedo: false, author: 'a1' },
-      { text: 'Hello to the World', isUndoRedo: false, author: 'a2' },
-      { text: '', isUndoRedo: true, author: 'a2' },
-      { text: 'Hello to the World', isUndoRedo: true, author: 'a3' },
+      { text: 'Hello World', editType: EditType.Edit, author: 'a1' },
+      { text: 'Hello to the World', editType: EditType.Edit, author: 'a2' },
+      { text: '', editType: EditType.Undo, author: 'a2' },
+      { text: 'Hello to the World', editType: EditType.Redo, author: 'a3' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
@@ -349,20 +349,20 @@ describe('Edit List', () => {
 
   it('should choose the right node to insert on undo/redo under ambiguity', () => {
     const texts = [
-      { text: 'a', isUndoRedo: false, author: 'a1' },
-      { text: 'abcd', isUndoRedo: false, author: 'a1' },
-      { text: 'a', isUndoRedo: false, author: 'a1' },
-      { text: '', isUndoRedo: false, author: 'a1' },
-      { text: 'a', isUndoRedo: false, author: 'a2' },
-      { text: 'ab', isUndoRedo: false, author: 'a2' },
-      { text: 'a', isUndoRedo: false, author: 'a2' },
-      { text: '', isUndoRedo: false, author: 'a2' },
-      { text: 'a', isUndoRedo: true, author: 'unknown' },
-      { text: 'ab', isUndoRedo: true, author: 'unknown' },
-      { text: 'a', isUndoRedo: true, author: 'unknown' },
-      { text: '', isUndoRedo: true, author: 'unknown' },
-      { text: 'a', isUndoRedo: true, author: 'unknown' },
-      { text: 'abcd', isUndoRedo: true, author: 'unknown' },
+      { text: 'a', editType: EditType.Edit, author: 'a1' },
+      { text: 'abcd', editType: EditType.Edit, author: 'a1' },
+      { text: 'a', editType: EditType.Edit, author: 'a1' },
+      { text: '', editType: EditType.Edit, author: 'a1' },
+      { text: 'a', editType: EditType.Edit, author: 'a2' },
+      { text: 'ab', editType: EditType.Edit, author: 'a2' },
+      { text: 'a', editType: EditType.Edit, author: 'a2' },
+      { text: '', editType: EditType.Edit, author: 'a2' },
+      { text: 'a', editType: EditType.Undo, author: 'unknown' },
+      { text: 'ab', editType: EditType.Undo, author: 'unknown' },
+      { text: 'a', editType: EditType.Undo, author: 'unknown' },
+      { text: '', editType: EditType.Undo, author: 'unknown' },
+      { text: 'a', editType: EditType.Undo, author: 'unknown' },
+      { text: 'abcd', editType: EditType.Undo, author: 'unknown' },
     ] as EditDef[];
     const editList = createEditList(texts, false);
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);

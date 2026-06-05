@@ -1,5 +1,5 @@
 
-import { DocumentStatus, EditList, EditListBuilder, EditRange, IChangeEvent } from "../index";
+import { DocumentStatus, EditList, EditListBuilder, EditRange, EditType, IChangeEvent } from "../index";
 import { FileEditEvent, isFileCopyTextEvent, isFileEditEvent, MainTableEvent } from "./PS2EventTypes";
 
 export namespace PS2 {
@@ -399,7 +399,7 @@ export namespace PS2 {
                 return;
             }
 
-            const isUndoOrRedo = event.EditType === 'Undo' || event.EditType === 'Redo';
+            const editType = this.toEditType(event.EditType);
 
             const allEvents: FileEditEvent[] = [event];
 
@@ -408,9 +408,9 @@ export namespace PS2 {
                     builder.logError("Child events must share EventTypes", event, child);
                     continue;
                 }
-                const isChildUndoOrRedo = child.EditType === 'Undo' || child.EditType === 'Redo';
-                if (isUndoOrRedo !== isChildUndoOrRedo) {
-                    builder.logError("Mismatched Undo/Redo between parent and child events", event, child);
+                const childEditType = this.toEditType(child.EditType);
+                if (editType !== childEditType) {
+                    builder.logError("Mismatched edit types between parent and child events", event, child);
                     continue;
                 }
                 allEvents.push(child);
@@ -429,10 +429,21 @@ export namespace PS2 {
             builder.addEditEvent({
                 time: time,
                 contentChanges: changeEvents,
-                isUndoOrRedo: isUndoOrRedo,
+                editType: editType,
             });
 
             this.recordHistoryFrame(changeEvents);
+        }
+
+        private toEditType(editType: string): EditType {
+            switch (editType) {
+                case 'Undo':
+                    return EditType.Undo;
+                case 'Redo':
+                    return EditType.Redo;
+                default:
+                    return EditType.Edit;
+            }
         }
 
         private recordHistoryFrame(changeEvents: IChangeEvent[], didTextJump = false) {
