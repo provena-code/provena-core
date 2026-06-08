@@ -172,6 +172,7 @@ export namespace PS2 {
                     await yielder();
                 }
             }
+            this.recordHistoryFrame([], false);
         }
 
         public addEvents(events: MainTableEvent[]) {
@@ -182,6 +183,7 @@ export namespace PS2 {
                 const nextEvent = eventsWithChildren[i + 1];
                 i += this.addEventAndPossiblyNextAndSwap(event, nextEvent);
             }
+            this.recordHistoryFrame([], false);
         }
 
         private addEventAndPossiblyNextAndSwap(a: EventWithChildren, b?: EventWithChildren) : number {
@@ -447,7 +449,7 @@ export namespace PS2 {
         }
 
         private recordHistoryFrame(changeEvents: IChangeEvent[], didTextJump = false) {
-            if (!this.addHistory) {
+            if (!this.addHistory || this.unrecordedEvents.length === 0) {
                 return;
             }
 
