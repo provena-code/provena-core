@@ -451,7 +451,7 @@ export class EditList implements Devaluable {
         }
 
         if (editType === EditType.Edit) {
-            this.pushHistory(insertHead, deleteHead, text);
+            this.pushHistory(insertHead, deleteHead);
         } else if (editType === EditType.Undo) {
             this.editHistoryIndex--;
         } else {
