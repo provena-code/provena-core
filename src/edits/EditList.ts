@@ -365,11 +365,11 @@ export class EditList implements Devaluable {
             const priorEdit = this.edits[index - 1];
             const subsequentEdit = this.edits[index];
             this.trace('Subsequent edit:', subsequentEdit);
-            let matchPath: QueryMatch | null = this.findUndoOrRedoMatch(editType, index, subsequentEdit, text);
-            if (matchPath) {
+            const undoRedoMatch: QueryMatch | null = this.findUndoOrRedoMatch(editType, index, subsequentEdit, text);
+            if (undoRedoMatch) {
                 // If we've created this text at this position before, just reconnect to that edit
-                this.trace('Reusing existing edit', matchPath[0]);
-                const inserted = this.insertQueryMatch(replacedSpan.start, matchPath, metadata.endTime, index);
+                this.trace('Reusing existing edit', undoRedoMatch[0]);
+                const inserted = this.insertQueryMatch(replacedSpan.start, undoRedoMatch, metadata.endTime, index);
                 this.markIfUndoneOrRedone(editType, ...inserted);
             } else if (pasteMatch && pasteMatch.length > 0) {
                 this.trace('Using paste match', pasteMatch);

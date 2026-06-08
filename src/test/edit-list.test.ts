@@ -401,4 +401,70 @@ describe('Edit List', () => {
     expect(editList.toPlainText()).toEqual(texts[texts.length - 1].text);
   });
 
+  it('should handle replacing a word with itself', () => {
+    const editList = new EditList();
+    editList.logError = (...args: any[]) => {
+      console.error(...args);
+      assert.fail('Error logged during test');
+    };
+    editList.trace = (...args: any[]) => { console.log(...args); };
+    addEdit(editList, {
+        rangeOffset: 0,
+        rangeLength: 0,
+        text: 'Hello World',
+      },
+      EditType.Edit,
+    );
+    addEdit(editList, {
+        rangeOffset: 6,
+        rangeLength: 5,
+        text: 'World',
+      },
+      EditType.Edit,
+    );
+    addEdit(editList, {
+        rangeOffset: 8,
+        rangeLength: 3,
+        text: 'rldly',
+      },
+      EditType.Edit,
+    );
+    addEdit(editList, {
+        rangeOffset: 8,
+        rangeLength: 5,
+        text: 'ld',
+      },
+      EditType.Undo,
+    );
+    addEdit(editList, {
+        rangeOffset: 6,
+        rangeLength: 5,
+        text: 'World',
+      },
+      EditType.Undo,
+    );
+    addEdit(editList, {
+        rangeOffset: 6,
+        rangeLength: 5,
+        text: 'World',
+      },
+      EditType.Redo,
+    );
+    addEdit(editList, {
+        rangeOffset: 8,
+        rangeLength: 3,
+        text: 'rldly',
+      },
+      EditType.Redo,
+    );
+  });
+
 });
+
+function addEdit(editList: EditList, changeEvent: IChangeEvent, editType: EditType, author = Author.User) {
+  editList.addEdit(changeEvent, {
+    author,
+    startTime: Date.now(),
+    endTime: Date.now(),
+  }, editType);
+}
