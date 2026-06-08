@@ -48,13 +48,26 @@ describe('EditNode search', () => {
         expect(match?.[0].range.start).toBe(1);
         expect(match?.[0].range.end).toBe(4);
     });
-    it('finds the most recent match of multiple', () => {
+    it('finds the earliest match of multiple when not reversed', () => {
         const root = createNode('Start ');
         const child1 = createNode('Hello world');
         const child2 = createNode('Goodbye world');
         root.addChild(child1);
         root.addChild(child2);
-        const match = root.search({query: 'world', exactIndex: false});
+        const match = root.search({query: 'world', exactIndex: false, reverseOrder: false});
+        expect(match).not.toBeNull();
+        expect(match?.length).toBe(1);
+        expect(match?.[0].node).toBe(child1);
+        expect(match?.[0].range.start).toBe(6);
+        expect(match?.[0].range.end).toBe(11);
+    });
+    it('finds the most recent match of multiple when reversed', () => {
+        const root = createNode('Start ');
+        const child1 = createNode('Hello world');
+        const child2 = createNode('Goodbye world');
+        root.addChild(child1);
+        root.addChild(child2);
+        const match = root.search({query: 'world', exactIndex: false, reverseOrder: true});
         expect(match).not.toBeNull();
         expect(match?.length).toBe(1);
         expect(match?.[0].node).toBe(child2);

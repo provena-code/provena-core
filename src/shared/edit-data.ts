@@ -98,6 +98,10 @@ export class EditNode implements EditRange, Devaluable {
         return this.outEdges;
     }
 
+    iterateOutEdges(reverse = false): Iterable<EditEdge> {
+        return iterate(this.outEdges, reverse);
+    }
+
     getParents(): readonly EditNode[] {
         return this.parents;
     }
@@ -219,7 +223,7 @@ export class EditNode implements EditRange, Devaluable {
     private searchEdges(queryParams: QueryParams, nQueryIndex: number, nNodeIndex: number, startNodeIndex: number): QueryMatch | null {
         // We matched all of this node, but not the whole query,
         // so continue the search in each of the children
-        for (const edge of this.outEdges) {
+        for (let edge of this.iterateOutEdges(queryParams.reverseOrder)) {
             if (!edge.textIndices.includes(nNodeIndex)) {
                 continue;
             }
@@ -328,7 +332,7 @@ export class EditNode implements EditRange, Devaluable {
         }
 
         // The query doesn't match this node, so try the children
-        for (const edge of this.outEdges) {
+        for (const edge of this.iterateOutEdges(queryParams.reverseOrder)) {
             const match = edge.child.search(queryParams, queryIndex);
             if (match) {
                 return match;
@@ -342,6 +346,18 @@ export class EditNode implements EditRange, Devaluable {
             text: this.text,
             children: this.outEdges.map(c => ({ textIndices: c.textIndices, child: c.child.toPrintable() })),
         };
+    }
+}
+
+export function* iterate<T>(array: T[], reverse: boolean) {
+    if (reverse) {
+        for (let i = array.length - 1; i >= 0; i--) {
+            yield array[i];
+        }
+    } else {
+        for (const item of array) {
+            yield item;
+        }
     }
 }
 
@@ -368,6 +384,7 @@ export type QueryParams = {
     subsequentEdit?: EditNode;
     /** Function to determine if the search should continue. */
     continueSearch?: () => boolean;
+    reverseOrder?: boolean;
 }
 
 export class Span implements Devaluable {

@@ -161,7 +161,7 @@ export function createEditList(textDefs: EditDefInput[], silently: boolean): Edi
     if (editDef.author) {
       metadata.author = editDef.author as Author;
     }
-    console.log('------------------------- Adding Edit -------------------------');
+    console.log(`------------------------- Adding Edit ${i.toString().padStart(2, '0')} -------------------------`);
     console.log(edit);
     editList.addEdit(edit, metadata, editDef.editType);
   });
