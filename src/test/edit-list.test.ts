@@ -432,7 +432,7 @@ describe('Edit List', () => {
     addEdit(editList, {
         rangeOffset: 8,
         rangeLength: 5,
-        text: 'ld',
+        text: 'rld',
       },
       EditType.Undo,
     );
