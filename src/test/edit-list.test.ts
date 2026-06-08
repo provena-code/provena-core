@@ -41,9 +41,18 @@ function testFile(name: string, checkReproduction: boolean, checkHistorySearch: 
   let textHistory = [];
   data.forEach(event => {
     if (firstEvent) {
-      editList.setInitialText(event.documentText, event.time);
       firstEvent = false;
       textHistory.push(event.documentText);
+      const realChangeEvent = {
+        rangeLength: event.documentText.length,
+        rangeOffset: 0,
+        text: event.documentText,
+      } as IChangeEvent;
+      editList.addEdit(realChangeEvent, {
+        author: Author.ExistingText,
+        startTime: event.time,
+        endTime: event.time,
+      }, EditType.Edit);
       return;
     }
     const editType = event.reason === 1 ? EditType.Undo : event.reason === 2 ? EditType.Redo : EditType.Edit;

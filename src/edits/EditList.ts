@@ -451,7 +451,7 @@ export class EditList implements Devaluable {
         }
 
         if (editType === EditType.Edit) {
-            this.pushHistory(insertHead, deleteHead);
+            this.pushHistory(insertHead, deleteHead, text);
         } else if (editType === EditType.Undo) {
             this.editHistoryIndex--;
         } else {
@@ -477,9 +477,16 @@ export class EditList implements Devaluable {
     }
 
     private pushHistory(insertHead?: EditNode, deleteHead?: EditNode) {
+        // Clear any history after this point, since it cannot be redone anymore
+        if (this.insertHistory.length != this.editHistoryIndex + 1) {
+            this.trace(`Clearing history after index ${this.editHistoryIndex} due to new edit; removed ${this.insertHistory.length - (this.editHistoryIndex + 1)} entries`);
+            this.insertHistory.length = this.editHistoryIndex + 1;
+            this.deleteHistory.length = this.editHistoryIndex + 1;
+        }
         this.insertHistory.push(insertHead);
         this.deleteHistory.push(deleteHead);
-        this.editHistoryIndex++;
+        this.trace(`Pushed to history at index ${this.editHistoryIndex}. Insert head:`, insertHead?.text ?? 'null', 'Delete head:', deleteHead?.text ?? 'null');
+        this.editHistoryIndex = this.insertHistory.length - 1;
     }
 
     private updateEditInHistory(oldEdit: EditNode, newEdit: EditNode) {
