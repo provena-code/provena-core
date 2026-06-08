@@ -519,7 +519,11 @@ export class EditList implements Devaluable {
         if (!matchPath) {
             // This line can be useful for debugging this error
             // this.findUndoOrRedoMatch(true, index, subsequentEdit, text);
-            this.logError('Internal error: undo/redo edit not found in subsequent edit');
+
+            // There's a known bug with indent/dedent undo/redo, and it's not meaningful
+            // so we'll fix it if we can, but it's not worth logging an error
+            const logger = text.trim().length === 0 ? this.logWarning : this.logError;
+            logger.call(this, 'Internal error: undo/redo edit not found in subsequent edit');
             return null;
         }
 
