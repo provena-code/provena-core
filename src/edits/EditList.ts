@@ -523,12 +523,14 @@ export class EditList implements Devaluable {
             return null;
         }
 
-        // TODO: I can't think of any way this would happen. If so,
-        // then I could definitely optimize search by requiring whole ranges.
+        // This should really only happen if there's a discontinuity, but it may still happen.
+        // It's probably not worth trying to recover, since it suggests an incomplete edit
+        // history, and even if we tried splitting the nodes, it may not match subsequent
+        // undo/redos. So just return null.
         for (const match of matchPath) {
             if (match.range.start !== 0 || match.range.end !== match.node.text.length) {
                 this.logError('Internal error: undo/redo match is not a full edit');
-                // TODO: Split nodes
+                return null;
             }
         }
 
