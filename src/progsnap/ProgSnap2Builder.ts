@@ -1,6 +1,6 @@
 
 import { DocumentStatus, EditList, EditListBuilder, EditRange, EditType, IChangeEvent } from "../index";
-import { FileEditEvent, isFileCopyTextEvent, isFileEditEvent, MainTableEvent } from "./PS2EventTypes";
+import { FileEditEvent, FileRenameEvent, isFileCopyTextEvent, isFileEditEvent, isFileRenameEvent, MainTableEvent } from "./PS2EventTypes";
 
 export namespace PS2 {
 
@@ -64,6 +64,81 @@ export namespace PS2 {
     type EventWithChildren = {
         event: MainTableEvent;
         childEvents: MainTableEvent[];
+    }
+
+    export class MultiFileBuilder {
+        private readonly builders: Map<string, Builder> = new Map();
+
+        public get builderMap(): ReadonlyMap<string, Builder> {
+            return this.builders;
+        }
+
+        private getOrCreateBuilder(filePath?: string): Builder {
+            if (!filePath) {
+                filePath = this.currentFile;
+            }
+            if (!this.builders.has(filePath)) {
+                this.builders.set(filePath, new Builder(this.options.addHistory, this.options.newLineMode));
+            }
+            return this.builders.get(filePath)!;
+        }
+
+        private currentFile = '';
+
+        constructor(
+            public readonly options: BuilderOptions,
+        ) { }
+
+        private logWarning(...args: any[]) {
+
+        }
+
+        private isRelevantEvent(event: MainTableEvent): boolean {
+            return isFileEditEvent(event) || isFileCopyTextEvent(event) || isFileRenameEvent(event) || event.Code !== undefined;
+        }
+
+        public addEvents(events: MainTableEvent[]) {
+            let eventsToAdd: MainTableEvent[] = [];
+            const me = this;
+            function flushEvents() {
+                if (eventsToAdd.length > 0) {
+                    const builder = me.getOrCreateBuilder();
+                    builder.addEvents(eventsToAdd);
+                    eventsToAdd = [];
+                }
+            }
+
+            for (let i = 0; i < events.length; i++) {
+                const event = events[i];
+                if (isFileRenameEvent(event)) {
+                    // No need to flush events because this may not even
+                    const from = event.CodeStateSection;
+                    const to = event.DestinationCodeStateSection;
+                    if (!this.builders.has(from)) {
+                        this.logWarning(`Received File.Rename event for unknown CodeStateSection ${from}.`);
+                    }
+                    this.builders.set(to, this.getOrCreateBuilder(from));
+                    this.builders.delete(from);
+                    if (this.currentFile === from) {
+                        this.currentFile = to;
+                    }
+                } else if (
+                    // Only flush if we've done something edit-relevant with another event, which could depend
+                    // on or affect other files.
+                    this.isRelevantEvent(event) &&
+                    event.CodeStateSection !== undefined && event.CodeStateSection !== this.currentFile
+                ) {
+                    flushEvents();
+                    const copiedText = this.getOrCreateBuilder().editListBuilder.lastCopiedText;
+                    this.currentFile = event.CodeStateSection;
+                    if (copiedText) {
+                        this.getOrCreateBuilder().editListBuilder.setCopiedText(copiedText);
+                    }
+                } else {
+                    eventsToAdd.push(event);
+                }
+            }
+        }
     }
 
     export class Builder {
@@ -393,7 +468,7 @@ export namespace PS2 {
                 }
                 builder.addCopyEvent(event.CopiedText, sourceLocation);
                 this.currentClipboard = event.CopiedText;
-                // console.log('Copy!', event.CopiedText, event, builder.lastCopiedText, builder.lastCopiedTextMatch);
+                // console.log('Copy!', event.CopiedText, event, builder.lastCopiedText);
                 return;
             }
 

@@ -8,6 +8,9 @@ const MainTableEventBase = z.looseObject({
     EventType: z.string(),
     SubjectID: z.string().optional(),
     ClientTimestamp: z.string().optional(),
+    // Might be needed for file renames.
+    // Not actually nullable but might as well
+    CodeStateSection: z.string().optional(),
     // Not technically universal, but we're not
     // enumerating all possible event types here
     Code: z.string().optional(),
@@ -26,9 +29,6 @@ export const FileEditEvent = MainTableEventBase.extend({
     InsertText: z.string().optional(),
     DeleteText: z.string().optional(),
     DeleteLength: z.number().optional(),
-    // Might be needed for file renames.
-    // Not actually nullable but might as well
-    CodeStateSection: z.string().optional(),
     ParentEventID: z.string().optional(),
 });
 

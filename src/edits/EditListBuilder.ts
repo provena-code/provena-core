@@ -53,13 +53,14 @@ export class EditListBuilder {
 
     private copiedText: CopiedText | null = null;
 
-    public get lastCopiedText() {
-        return this.copiedText?.text;
+    public setCopiedText(copiedText: CopiedText) {
+        this.trace('Manually setting copied text', copiedText);
+        this.copiedText = copiedText;
     }
 
-    public get lastCopiedTextMatch() {
-        return this.copiedText?.match;
-     }
+    public get lastCopiedText() {
+        return this.copiedText;
+    }
 
     constructor(
         public readonly editList: EditList,
@@ -106,7 +107,7 @@ export class EditListBuilder {
             return Author.User;
         }
 
-        if (edit.text === this.lastCopiedText) {
+        if (edit.text === this.copiedText?.text) {
             if (this.copiedText?.originUnknown) {
                 // If the copied text matches but we don't know where it came from,
                 // we should mark it that way instead of assuming it's external.
