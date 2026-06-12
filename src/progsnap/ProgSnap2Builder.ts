@@ -134,10 +134,24 @@ export namespace PS2 {
                     if (copiedText) {
                         this.getOrCreateBuilder().editListBuilder.setCopiedText(copiedText);
                     }
-                } else {
-                    eventsToAdd.push(event);
+                } else if (event.Code !== undefined) {
+                    const builder = this.getOrCreateBuilder();
+                    // If we're setting code for a previously unseen file, it may be that the file
+                    // was copied from an existing file (we can't detect File.Copy events, so we have
+                    // to infer them).
+                    if (builder.editList.isEmpty()) {
+                        for (const [filePath, otherBuilder] of this.builders) {
+                            if (otherBuilder.editList.toPlainText() === event.Code) {
+                                builder.editList.trace(`Inferring File.Copy event for file ${event.CodeStateSection} from identical code in file ${filePath}.`);
+                                builder.editListBuilder.addFileCopyEvent(otherBuilder.editList);
+                                break;
+                            }
+                        }
+                    }
                 }
+                eventsToAdd.push(event);
             }
+            flushEvents();
         }
     }
 
@@ -460,7 +474,6 @@ export namespace PS2 {
                 return;
             }
 
-            // TODO: Handle copied text from other documents!
             if (isFileCopyTextEvent(event)) {
                 let sourceLocation = event.SourceLocation ? parseInt(event.SourceLocation) : undefined;
                 if (sourceLocation !== undefined && isNaN(sourceLocation)) {

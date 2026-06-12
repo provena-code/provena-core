@@ -278,6 +278,23 @@ export class EditList implements Devaluable {
         this.head.addChild(child);
     }
 
+    setInitialEdits(edits: EditRange[]) {
+        if (this.edits.length > 0) {
+            throw new Error('Initial edits can only be set on an empty EditList');
+        }
+        let lastEdit: EditNode | null = null;
+        // Copied nodes retail their metadata (the history of who authored it and when)
+        // but only adjacent nodes are connected, since there's no edit history.
+        for (const edit of edits) {
+            const node = new EditNode(edit.range, edit.text, edit.metadata);
+            this.edits.push(node);
+            if (lastEdit) {
+                lastEdit.addChild(node);
+            }
+            lastEdit = node;
+        }
+    }
+
     addEdit(changeEvent: IChangeEvent, metadata: Metadata, editType = EditType.Edit, pasteMatch: QueryMatch | null = null) {
         if (pasteMatch?.length === 0) {
             this.logError('Internal error: paste match is empty', pasteMatch);

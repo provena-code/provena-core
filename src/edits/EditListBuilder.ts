@@ -370,4 +370,7 @@ export class EditListBuilder {
         return historicalMatch;
     }
 
+    addFileCopyEvent(editList: EditList) {
+        this.editList.setInitialEdits(editList.copyEdits());
+    }
 }
