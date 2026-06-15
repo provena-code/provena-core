@@ -10,13 +10,17 @@ export namespace PS2 {
         end: number;
     }
 
-    export type AnnotatedDocument = {
+    type AnnotatedDocumentBase = {
         edits: EditRange[];
         errors: any[][];
         isInternallyConsistent: boolean;
     }
 
-    export type EditHistoryFrame = AnnotatedDocument & {
+    export type AnnotatedDocument = AnnotatedDocumentBase & {
+        metrics: Record<string, Record<string, any>>;
+    }
+
+    export type EditHistoryFrame = AnnotatedDocumentBase & {
         eventIDs: string[];
         editedRanges: EditedRange[];
         wasInsertion: boolean;
@@ -36,8 +40,8 @@ export namespace PS2 {
         return createEditListLogic(events, { ...options, addHistory: false }) as AnnotatedDocument;
     }
 
-    export function createEditHistory(events: MainTableEvent[], options?: NonHistoryBuilderOptions): readonly EditHistoryFrame[] {
-        return createEditListLogic(events, { ...options, addHistory: true }) as readonly EditHistoryFrame[];
+    export function createEditHistory(events: MainTableEvent[], options?: NonHistoryBuilderOptions): Builder {
+        return createEditListLogic(events, { ...options, addHistory: true }) as Builder;
     }
 
     export async function createEditHistoryAsync(events: MainTableEvent[], yielder: () => Promise<any>, options?: NonHistoryBuilderOptions): Promise<Builder> {
@@ -46,13 +50,14 @@ export namespace PS2 {
         return builder;
     }
 
-    function createEditListLogic(events: MainTableEvent[], options: BuilderOptions): readonly EditHistoryFrame[] | AnnotatedDocument {
+    function createEditListLogic(events: MainTableEvent[], options: BuilderOptions): Builder | AnnotatedDocument {
         const builder = new Builder(options.addHistory, options.newLineMode);
         builder.addEvents(events);
-        return options.addHistory ? builder.getHistory() : {
+        return options.addHistory ? builder : {
             edits: builder.getEditsCopy(),
             errors: builder.errors.slice(),
             isInternallyConsistent: builder.editList.isInternallyConsistent(),
+            metrics: builder.calculateMetrics(),
         };
     }
 
