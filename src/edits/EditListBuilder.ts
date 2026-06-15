@@ -63,6 +63,7 @@ export class EditListBuilder {
 
     private copiedText: CopiedText | null = null;
     private listeners: IEditListener[] = [];
+    private isFirstEdit = true;
 
     public setCopiedText(copiedText: CopiedText) {
         this.trace('Manually setting copied text', copiedText);
@@ -129,6 +130,16 @@ export class EditListBuilder {
                 return Author.Unknown;
             }
             return Author.ExternalPaste;
+        }
+
+        // If this is the first edit and the system is inserting a lot of text,
+        // it's possible this is a quirk of the IDE (e.g. Save As an out-of-workspace
+        // file into the workspace), so we shouldn't assume this is a meaningful IDE insertion.
+        // This would also end up applying to Agent-created files, but it's still fair
+        // to say that this was "existing text" when the student started editing it,
+        // same as if they'd created the file with an external editor.
+        if (this.isFirstEdit && this.editList.isEmpty() && edit.text.length > 0) {
+            return Author.ExistingText;
         }
 
         return Author.System;
@@ -288,6 +299,8 @@ export class EditListBuilder {
 
         const isUndoOrRedo = editType !== EditType.Edit;
         const author = this.getAuthor(edits, isUndoOrRedo);
+
+        this.isFirstEdit = false;
 
         for (const originalEdit of edits) {
             let match: QueryMatch | null = null;

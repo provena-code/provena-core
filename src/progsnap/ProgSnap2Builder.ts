@@ -1,7 +1,7 @@
 
 import { DocumentStatus, EditList, EditListBuilder, EditRange, EditType, IChangeEvent } from "../index";
 import { MetricBuilder } from "../metrics/MetricBuilder";
-import { FileEditEvent, FileRenameEvent, isFileCopyTextEvent, isFileEditEvent, isFileRenameEvent, MainTableEvent } from "./PS2EventTypes";
+import { FileEditEvent, isFileCopyTextEvent, isFileEditEvent, isFileRenameEvent, MainTableEvent } from "./PS2EventTypes";
 
 export namespace PS2 {
 
