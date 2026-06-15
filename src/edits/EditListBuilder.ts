@@ -1,15 +1,25 @@
 import { Diff, diffChars } from "diff";
 import { Author } from "../shared/Author";
-import { QueryMatchPart, QueryMatch, Span } from "../shared/edit-data";
+import { QueryMatch, Span } from "../shared/edit-data";
 import { EditEvent, EditType, IChangeEvent } from "./EditEvent";
 import { continueWithinTimeLimit, EditList } from "./EditList";
 
-class CopiedText {
+export class CopiedText {
     constructor(
         public readonly text: string,
         public readonly match: QueryMatch | null,
         public readonly originUnknown: boolean = false
     ) {}
+}
+
+export type EditEventParams = {
+    edit: EditEvent;
+    editList: EditList;
+    copiedText: CopiedText | null;
+}
+
+export interface IEditListener {
+    onEdit(params: EditEventParams): void;
 }
 
 class AttributionConfig {
@@ -52,6 +62,7 @@ class CodeDiff extends Diff<string> {
 export class EditListBuilder {
 
     private copiedText: CopiedText | null = null;
+    private listeners: IEditListener[] = [];
 
     public setCopiedText(copiedText: CopiedText) {
         this.trace('Manually setting copied text', copiedText);
@@ -66,6 +77,10 @@ export class EditListBuilder {
         public readonly editList: EditList,
         public readonly config: AttributionConfig = new AttributionConfig()
     ) {}
+
+    public addListener(listener: IEditListener) {
+        this.listeners.push(listener);
+    }
 
     public trace(...args: any[]) {
         this.editList.trace(...args);
@@ -304,7 +319,15 @@ export class EditListBuilder {
             };
             this.editList.addEdit(edit, metadata, editType, match);
         }
+        this.onEdit(event);
+    }
 
+    private onEdit(edit: EditEvent) {
+        const wasCopy = this.copiedText && this.copiedText.text.length > 0 && edit.contentChanges.length === 1 && edit.contentChanges[0].text === this.copiedText.text;
+        const copiedText = wasCopy ? this.copiedText : null;
+        for (const listener of this.listeners) {
+            listener.onEdit({ edit, editList: this.editList, copiedText });
+        }
     }
 
     /**

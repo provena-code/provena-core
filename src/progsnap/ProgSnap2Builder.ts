@@ -1,5 +1,6 @@
 
 import { DocumentStatus, EditList, EditListBuilder, EditRange, EditType, IChangeEvent } from "../index";
+import { MetricBuilder } from "../metrics/MetricBuilder";
 import { FileEditEvent, FileRenameEvent, isFileCopyTextEvent, isFileEditEvent, isFileRenameEvent, MainTableEvent } from "./PS2EventTypes";
 
 export namespace PS2 {
@@ -39,10 +40,10 @@ export namespace PS2 {
         return createEditListLogic(events, { ...options, addHistory: true }) as readonly EditHistoryFrame[];
     }
 
-    export async function createEditHistoryAsync(events: MainTableEvent[], yielder: () => Promise<any>, options?: NonHistoryBuilderOptions): Promise<readonly EditHistoryFrame[]> {
+    export async function createEditHistoryAsync(events: MainTableEvent[], yielder: () => Promise<any>, options?: NonHistoryBuilderOptions): Promise<Builder> {
         const builder = new Builder(true, options?.newLineMode);
         await builder.addEventsAsync(events, yielder);
-        return builder.getHistory();
+        return builder;
     }
 
     function createEditListLogic(events: MainTableEvent[], options: BuilderOptions): readonly EditHistoryFrame[] | AnnotatedDocument {
@@ -174,9 +175,17 @@ export namespace PS2 {
                 (this.newLineMode === NewlineMode.AutoDetect && this.detectedLinefeed);
         }
 
+        private readonly metricBuilder = MetricBuilder.createWithAll();
+
         constructor(
             public readonly addHistory = false,
-            public readonly newLineMode = NewlineMode.UseSource) {
+            public readonly newLineMode = NewlineMode.UseSource
+        ) {
+            this.editListBuilder.addListener(this.metricBuilder);
+        }
+
+        public calculateMetrics() {
+            return this.metricBuilder.calculateMetrics();
         }
 
         public getHistory(): readonly EditHistoryFrame[] {
