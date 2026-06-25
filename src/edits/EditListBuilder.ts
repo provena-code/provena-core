@@ -1,6 +1,6 @@
 import { Diff, diffChars } from "diff";
 import { Author } from "../shared/Author";
-import { QueryMatch, Span } from "../shared/edit-data";
+import { EditNode, QueryMatch, Span } from "../shared/edit-data";
 import { EditEvent, EditType, IChangeEvent } from "./EditEvent";
 import { continueWithinTimeLimit, EditList } from "./EditList";
 
@@ -40,6 +40,8 @@ class AttributionConfig {
         public minHistoricalMatchLongestOverlapRatio: number = 0.05,
 
         public maxSearchTimeMs: number = 300,
+
+        public minDeletedTextLengthForHistory: number = 10
     ) {}
 }
 
@@ -64,6 +66,7 @@ export class EditListBuilder {
     private copiedText: CopiedText | null = null;
     private listeners: IEditListener[] = [];
     private isFirstEdit = true;
+    private readonly deleteMap = new Map<string, EditNode[]>();
 
     public setCopiedText(copiedText: CopiedText) {
         this.trace('Manually setting copied text', copiedText);
@@ -314,6 +317,14 @@ export class EditListBuilder {
                 // Don't search history; too expensive and unlikely to match, and even then
                 // may be a false positive.
                 match = this.matchText(originalEdit.text, false);
+
+                if (!match && this.deleteMap.has(originalEdit.text)) {
+                    // If the system is inserting text that was previously deleted, we can attribute it to the original author.
+                    // It will be treated like a paste
+                    console.log('Matching deleted text:', originalEdit.text, this.deleteMap.get(originalEdit.text));
+                    const deletedEdits = this.deleteMap.get(originalEdit.text)!;
+                    match = deletedEdits.map(e => ({ node: e, range: new Span(0, e.range.length) }));
+                }
             }
 
             let edit = originalEdit;
@@ -330,7 +341,18 @@ export class EditListBuilder {
                 startTime: time,
                 endTime: time,
             };
-            this.editList.addEdit(edit, metadata, editType, match);
+            const deleted = this.editList.addEdit(edit, metadata, editType, match);
+
+            // If we have a single deletion that's longer than the user edit threshold,
+            // we keep track of it. If it gets inserted verbatim later, we can attribute it
+            // to the original authors. This catches things like dragging text, or cut/paste that
+            // isn't detected by the logger.
+            // TODO: This is really a narrow version of just searching the history, which would be
+            // more robust, but also more expensive.
+            if (edits.length == 1 && edit.rangeLength >= this.config.minDeletedTextLengthForHistory) {
+                const deletedText = deleted.map(e => e.text).join('');
+                this.deleteMap.set(deletedText, deleted);
+            }
         }
         this.onEdit(event);
     }

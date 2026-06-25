@@ -29,6 +29,7 @@ export class EditList implements Devaluable {
     logWarning: (...args: any[]) => void = (..._args: any[]) => { console.warn(..._args); };
     logError: (...args: any[]) => void = (..._args: any[]) => { console.error(..._args); };
 
+    // TODO: what to do with undo/redo nodes?
     toPOJO() {
         return {
             ...this,
@@ -295,7 +296,7 @@ export class EditList implements Devaluable {
         }
     }
 
-    addEdit(changeEvent: IChangeEvent, metadata: Metadata, editType = EditType.Edit, pasteMatch: QueryMatch | null = null) {
+    addEdit(changeEvent: IChangeEvent, metadata: Metadata, editType = EditType.Edit, pasteMatch: QueryMatch | null = null): EditNode[] {
         if (pasteMatch?.length === 0) {
             this.logError('Internal error: paste match is empty', pasteMatch);
         }
@@ -345,6 +346,8 @@ export class EditList implements Devaluable {
             }
         }
 
+        let deleted: EditNode[] = [];
+
         // Remove contained edits, which are now superseded by this edit
         if (containedEdits.length > 0) {
             let before = this.findLastEditBefore(replacedSpan.start);
@@ -367,7 +370,7 @@ export class EditList implements Devaluable {
                 throw new Error('Internal error: mismatch in contained edits');
             }
             this.trace('Removing edits:\n', containedEdits.map(e => e.text + `${e.range}`).join(', '));
-            const deleted = this.edits.splice(before + 1, expectedLength);
+            deleted = this.edits.splice(before + 1, expectedLength);
             this.markIfUndoneOrRedone(editType, ...deleted);
         }
 
@@ -472,6 +475,8 @@ export class EditList implements Devaluable {
         }
 
         this.trace('Final edits:', this.toStringWithRanges());
+
+        return deleted;
     }
 
     private markIfUndoneOrRedone(editType: EditType, ...nodes: EditNode[]) {
