@@ -41,7 +41,10 @@ class AttributionConfig {
 
         public maxSearchTimeMs: number = 300,
 
-        public minDeletedTextLengthForHistory: number = 10
+        /** Minimum length of deleted text to store in history to use for attribution. */
+        public minDeletedTextLengthForHistory: number = 10,
+        /** Minimum length of replaced text to consider for diff-based attribution. */
+        public minReplaceLengthForDiff: number = 20
     ) {}
 }
 
@@ -148,7 +151,7 @@ export class EditListBuilder {
         return Author.System;
     }
 
-    public verifyDocumentText(documentText: string, time: number, update: boolean) : DocumentStatus {
+    public verifyDocumentText(documentText: string, time: number, update: boolean, additionAuthor: Author = Author.ExternalEdit) : DocumentStatus {
         const currentText = this.editList.toPlainText();
         if (currentText === documentText) {
             return DocumentStatus.Synced;
@@ -193,7 +196,7 @@ export class EditListBuilder {
         let offset = 0;
         for (const part of parts) {
             const metadata = {
-                author: Author.ExternalEdit,
+                author: additionAuthor,
                 startTime: time,
                 endTime: time
             };
@@ -321,9 +324,32 @@ export class EditListBuilder {
                 if (!match && this.deleteMap.has(originalEdit.text)) {
                     // If the system is inserting text that was previously deleted, we can attribute it to the original author.
                     // It will be treated like a paste
-                    console.log('Matching deleted text:', originalEdit.text, this.deleteMap.get(originalEdit.text));
+                    this.trace('Matching deleted text:', originalEdit.text, this.deleteMap.get(originalEdit.text));
                     const deletedEdits = this.deleteMap.get(originalEdit.text)!;
                     match = deletedEdits.map(e => ({ node: e, range: new Span(0, e.range.length) }));
+                }
+            } else if (
+                (author === Author.System || (author === Author.ExternalPaste && !this.copiedText?.match)) &&
+                edits.length === 1 && !isUndoOrRedo
+            ) {
+                const edit = edits[0];
+                // If we're replacing a sizeable amount of text with a sizable amount of new text,
+                // which didn't come from the user or an internal paste
+                // we can try to attribute the change to the original author(s) using a diff.
+                if (
+                    edit.rangeLength >= this.config.minReplaceLengthForDiff &&
+                    edit.text.length >= this.config.minReplaceLengthForDiff
+                ) {
+                    const currentText = this.editList.toPlainText();
+                    // TODO: double check for off by ones
+                    const updatedText = currentText.substring(0, edit.rangeOffset) + edit.text + currentText.substring(edit.rangeOffset + edit.rangeLength);
+                    const dryRunResult = this.verifyDocumentText(updatedText, time, false);
+                    // If the diff confirms this is a modification and not replacing unrelated text
+                    if (dryRunResult === DocumentStatus.Modified) {
+                        this.trace('Using diff-based attribution for edit:', edit);
+                        this.verifyDocumentText(updatedText, time, true, author);
+                        return;
+                    }
                 }
             }
 
