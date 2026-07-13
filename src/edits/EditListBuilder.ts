@@ -310,8 +310,12 @@ export class EditListBuilder {
 
         for (const originalEdit of edits) {
             let match: QueryMatch | null = null;
+            // TODO: Should probably refactor this complex if/else case
+            // would be better with returns.
+            let foundSpecialCase = false;
             if (author === Author.ExternalPaste && !isUndoOrRedo && this.copiedText) {
                 match = this.copiedText.match;
+                foundSpecialCase = true;
             } else if (author === Author.System && !isUndoOrRedo) {
                 // TODO: Need to test this more thoroughly:
                 // Does it have edge cases where system text gets upgraded to copied text?
@@ -327,8 +331,12 @@ export class EditListBuilder {
                     this.trace('Matching deleted text:', originalEdit.text, this.deleteMap.get(originalEdit.text));
                     const deletedEdits = this.deleteMap.get(originalEdit.text)!;
                     match = deletedEdits.map(e => ({ node: e, range: new Span(0, e.range.length) }));
+                    foundSpecialCase = true;
                 }
-            } else if (
+            }
+
+            if (
+                !foundSpecialCase &&
                 (author === Author.System || (author === Author.ExternalPaste && !this.copiedText?.match)) &&
                 edits.length === 1 && !isUndoOrRedo
             ) {
