@@ -29,7 +29,7 @@ This project uses vitest to run tests. You can use the official VS Code Vitest e
 
 **Note**: Some tests concern runtime and if you run all tests in parallel, as is the default for vitest, they may fail. Run the individually instead.
 
-## Citing this work
+## Citing Provena
 
 To cite Provena, please cite:
 
