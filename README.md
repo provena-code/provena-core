@@ -1,11 +1,11 @@
-# provena-core
+# Provena
 Provena is system designed to allow students to show their work on programming problems, and to enable instructors to verify student effort. It works by collecting detailed but narrowly-scoped log data as students work, calcualting the provenance of student code, visualizing their code histories, and reporting metrics that can help flag suspicious behavior for further inspection. The primary goal of Provena is to encourage practice and deter help that skips the learning process (see Premise below).
 
 The whole Provena system consistnes of:
-* This repository, which contains the core logic for calculating code provenance and other useful features from edit histories (e.g. in [ProgSnap2 format](https://cssplice.org/progsnap2/). This is a library used in other applications.
-* [provena-vscode](https://github.com/thomaswp/provena-vscode) extension: A VS Code plugin for collecting log data used to ensure students.
-* [provena-server](https://github.com/thomaswp/provena-client): A server for collecting log data and serving it to the instructor.
-* [provena-client](https://github.com/thomaswp/provena-client): An instructor-facing dashboard for viewing student work.
+* provena-core: This repository, which contains the core logic for calculating code provenance and other useful features from edit histories (e.g. in [ProgSnap2 format](https://cssplice.org/progsnap2/). This is a library used in other applications.
+* [provena-vscode](https://github.com/provena-code/provena-vscode) extension: A VS Code plugin for collecting log data used to ensure students.
+* [provena-server](https://github.com/provena-code/provena-client): A server for collecting log data and serving it to the instructor.
+* [provena-client](https://github.com/provena-code/provena-client): An instructor-facing dashboard for viewing student work.
 
 ## Premise
 **The Problem**: Repeated studies show that out-of-class practice is a key driver of learning (the "doer effect"). However, in a world where GenAI can solve homework problems instantly, many students question why they should bother putting in the effort when they know their peers may not be. Equally concerning, students increasingly fear and report false accusations of cheating with AI by their instructors. GenAI is undermining the ability of instructors to assign needed out-of-class practice to students, demotivating students, and creating persistent uncertainty around academic integrity.
